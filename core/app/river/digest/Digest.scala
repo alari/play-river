@@ -25,8 +25,12 @@ class Digest extends Actor {
             (topic, byTopic) <- byUser.groupBy(_.topic)
             channels <- byTopic.map(_.digest.filter(_._2.isBeforeNow).keys)
             c <- channels
-          } {
-            self ! TriggerDigest(userId, topic, c)
+            ch = river.channel(c) if ch.isDefined
+          } ch match {
+            case Some(d: Channel.Digest[_]) =>
+              self ! TriggerDigest(userId, topic, d)
+            case _ =>
+              play.api.Logger.error("Non-Digest channel for Notification: " + channels + s" ($userId, $topic)")
           }
 
       }

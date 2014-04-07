@@ -12,6 +12,6 @@ trait Notification extends Contexts {
   def userId: String
   def timestamp: DateTime
   def read: Boolean
-  def digest: Map[Channel.Digest[_],DateTime]
+  def digest: Map[String,DateTime]
   def topic: Option[String]
 }

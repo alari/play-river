@@ -14,7 +14,7 @@ case class NotificationCase(
                              contexts: Map[String, String] = Map(),
                              timestamp: DateTime = DateTime.now(),
                              read: Boolean = false,
-                             digest: Map[Channel.Digest[_], DateTime] = Map(),
+                             digest: Map[String, DateTime] = Map(),
                              topic: Option[String] = None
                              ) extends Notification
 

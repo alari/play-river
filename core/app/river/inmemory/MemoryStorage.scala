@@ -22,7 +22,7 @@ object MemoryStorage extends NotificationStorage{
     val f = found(finder)
     storage = storage.map {
       case n if f(n) =>
-        n.copy(digest =  n.digest.filter(_._1.id != channel))
+        n.copy(digest =  n.digest.filter(_._1 != channel.id))
       case n => n
     }
     Future.successful(true)
@@ -32,7 +32,7 @@ object MemoryStorage extends NotificationStorage{
   override def delay(notification: Notification, digest: Seq[(Digest[_], DateTime)]): Future[Boolean] = {
     storage = storage.map {
       case n if n == notification =>
-        n.copy(digest = digest.toMap)
+        n.copy(digest = digest.map{case (k, v) => k.id -> v}.toMap)
       case n => n
     }
     Future.successful(true)
@@ -71,7 +71,7 @@ object MemoryStorage extends NotificationStorage{
 
   def found(finder: Finder) = (n: Notification) => {
     finder.contexts.map{c=> c.forall(ci => n.contexts.exists(_ == ci))}.getOrElse(true) &&
-    finder.delayed.map(d => n.digest.exists(_._1.id == d.id)).getOrElse(true) &&
+    finder.delayed.map(d => n.digest.exists(_._1 == d.id)).getOrElse(true) &&
     finder.read.map(r => n.read == r).getOrElse(true) &&
     finder.topic.map(r => n.topic.exists(_ == r)).getOrElse(true) &&
     finder.userId.map(_ == n.userId).getOrElse(true)
