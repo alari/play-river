@@ -1,6 +1,6 @@
 organization := "ru.mirari"
 
-name := "play-river"
+name := "play-river-elasticsearch"
 
 version := "1.0"
 
