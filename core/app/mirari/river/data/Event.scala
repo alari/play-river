@@ -1,4 +1,4 @@
-package river.data
+package mirari.river.data
 
 import org.joda.time.DateTime
 

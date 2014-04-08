@@ -1,7 +1,6 @@
-package river.data
+package mirari.river.data
 
 import org.joda.time.DateTime
-import river.channel.Channel
 
 /**
  * @author alari
@@ -13,5 +12,5 @@ trait Notification extends Contexts {
   def timestamp: DateTime
   def read: Boolean
   def digest: Map[String,DateTime]
-  def topic: Option[String]
+  def topic: String
 }
