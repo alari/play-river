@@ -5,6 +5,7 @@ import mirari.river.data.{Notification, Event}
 import mirari.river.channel.Channel
 import scala.concurrent.{Future, ExecutionContext}
 import org.joda.time.DateTime
+import ch.qos.logback.core.util.ExecutorServiceUtil
 
 /**
  * @author alari
@@ -40,10 +41,10 @@ trait River {
     Enumeratee
       .mapFlatten[(Event, Notification)] {
       case (e, n) =>
-        Enumerator.generateM(wrappers
+        Enumerator.flatten(wrappers
           .foldLeft(Enumerator.empty[Envelop]) {
           case (a, b) => Enumerator.interleave(a, b(e, n))
-        } |>>> Iteratee.getChunks map (es => Some(n -> es)))
+        } |>>> Iteratee.getChunks map (es => n -> es) map (Enumerator(_)))
 
     }
 
@@ -55,7 +56,7 @@ trait River {
           case _ => false
         }.asInstanceOf[Seq[Envelop.Instantly[_]]]
 
-        Enumerator generateM Future
+        Enumerator flatten Future
           .sequence(
             instantly
               .map(e =>
@@ -74,7 +75,7 @@ trait River {
               case _: Envelop.Delay => true
               case _ => false
             }.asInstanceOf[Seq[Envelop.Delay]]
-        }.map(sq => Some(notification -> sq))
+        }.map(sq => Enumerator(notification -> sq))
     }
 
   def delay(implicit ec: ExecutionContext): Iteratee[(Notification, Seq[Envelop.Delay]), Unit] =
@@ -86,7 +87,13 @@ trait River {
           n -> es.map(e => e.channelId -> DateTime.now().plusMinutes(e.delay.toMinutes.toInt))
       } &>> storage.delay
 
-  def flow(src: Enumerator[Event])(implicit ec: ExecutionContext) = src &> logger.insert ><> watch ><> storage.act ><> wrap ><> instants |>> delay
+  def flow(src: Enumerator[Event])(implicit ec: ExecutionContext) =
+    src &> buffer[Event] ><>
+      logger.insert ><> buffer ><>
+      watch ><> buffer ><>
+      storage.act ><> buffer ><>
+      wrap ><> buffer ><>
+      instants ><> buffer |>> delay
 
   def fireSingle(e: Event)(implicit ec: ExecutionContext) = flow(Enumerator(e))
 
@@ -102,37 +109,50 @@ trait River {
       } |>>> Iteratee.getChunks
   }
 
-  def topicWithEvents(implicit ec: ExecutionContext): Enumeratee[(PendingTopic,List[Notification]),(PendingTopic,List[(Event,Notification)])] =
-    Enumeratee.mapFlatten[(PendingTopic,List[Notification])] {
-      case (t,ns) =>
+  def topicWithEvents(implicit ec: ExecutionContext): Enumeratee[(PendingTopic, List[Notification]), (PendingTopic, List[(Event, Notification)])] =
+    Enumeratee.mapFlatten[(PendingTopic, List[Notification])] {
+      case (t, ns) =>
         Enumerator(ns) &> zipWithEvents ><> Enumeratee.map(es => t -> es)
     }
 
   def digestViews: Seq[DigestView]
 
-  def digestView(implicit ec: ExecutionContext): Enumeratee[(PendingTopic,List[(Event,Notification)]),(PendingTopic,Any)] = Enumeratee.mapFlatten{
+  def digestView(implicit ec: ExecutionContext): Enumeratee[(PendingTopic, List[(Event, Notification)]), (PendingTopic, Any)] = Enumeratee.mapFlatten {
     case (t, is) =>
       Enumerator.flatten(
-        Future sequence digestViews.flatMap(_(t, is)) map {vs => vs.map(v => t -> v)} map {sq => Enumerator.enumerate(sq)}
+        Future sequence digestViews.flatMap(_(t, is)) map {
+          vs => vs.map(v => t -> v)
+        } map {
+          sq => Enumerator.enumerate(sq)
+        }
       )
   }
 
-  def sendDigest(implicit ec: ExecutionContext): Enumeratee[(PendingTopic,Any), Boolean] = Enumeratee.mapM {
-    case (t,v) =>
-      channels.find(_.id == t.channelId).map(_.digest(v)).getOrElse(Future.successful(false))
+  def sendDigest(implicit ec: ExecutionContext): Enumeratee[(PendingTopic, Any), PendingTopic] = Enumeratee.mapM {
+    case (t, v) =>
+      channels.find(_.id == t.channelId).map(_.digest(v).map(_ => t)).getOrElse(Future.successful(t))
   }
 
   def digest(src: Enumerator[River.CheckDelayed.type])(implicit ec: ExecutionContext) =
-    src &> pendings ><> storage.pendingTopicNotifications ><> topicWithEvents ><> digestView ><> sendDigest |>> Iteratee.ignore
+    src &> pendings ><> storage.pendingTopicNotifications ><> topicWithEvents ><> digestView ><> sendDigest ><> storage.pendingProcessed |>> Iteratee.ignore
 
   def run()(implicit ec: ExecutionContext) {
     digest(checkDelayedSource)
     flow(source)
   }
 
+  private def debug[T](m: String)(implicit ec: ExecutionContext) = Enumeratee.map[T] {
+    o =>
+      play.api.Logger.debug(s"debug($m): $o")
+      o
+  }
+
+  def buffer[T] = Concurrent.buffer[T](200)
+
 }
 
-object River extends River{
+object River extends River {
+
   case object CheckDelayed
 
   override def digestViews: Seq[DigestView] = play.api.Play.current.plugins.filter {
@@ -163,16 +183,16 @@ object River extends River{
 
   override def fire(e: Event): Unit = sender.push(e)
 
+  private implicit val ec = ExecutionContext.fromExecutorService(ExecutorServiceUtil.newExecutorService())
+
   override def checkDelayedSource: Enumerator[CheckDelayed.type] = {
     import scala.concurrent.duration._
-    import play.api.libs.concurrent.Execution.Implicits.defaultContext
-    val (cdsource, cdsender) = Concurrent.broadcast[CheckDelayed.type ]
-    play.api.libs.concurrent.Akka.system(play.api.Play.current).scheduler.schedule(100 millis, 500 millis){
+    val (cdsource, cdsender) = Concurrent.broadcast[CheckDelayed.type]
+    play.api.libs.concurrent.Akka.system(play.api.Play.current).scheduler.schedule(1 minute, 5 minutes) {
       cdsender.push(CheckDelayed)
     }
     cdsource
   }
 
-  import play.api.libs.concurrent.Execution.Implicits.defaultContext
   run()
 }

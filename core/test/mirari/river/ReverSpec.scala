@@ -27,9 +27,9 @@ class ReverSpec extends Specification {
       "mirari.river.TestDigestView",
       "mirari.river.TestChannel"
     ))) {
-      (1 to 10000).foreach {
+      (1 to 4000).foreach {
         i =>
-          play.api.Logger.error(i.toString)
+          //play.api.Logger.warn("i = "+i)
           River.fire(EventCase("event-id-" + i, "test-" + i))
       }
 
@@ -71,13 +71,13 @@ class TestChannel(app: play.api.Application) extends Plugin with Channel {
 
   override def digest(view: Any)(implicit ec: ExecutionContext): Future[Boolean] = view match {
     case s: String =>
-      play.api.Logger.info(s)
+      play.api.Logger.info("digest --- "+s)
       Future.successful(true)
   }
 
   override def instant(view: Any)(implicit ec: ExecutionContext): Future[Boolean] = view match {
     case s: String =>
-      play.api.Logger.debug(s)
+      play.api.Logger.debug("instant ========= "+s)
       Future.successful(true)
   }
 }

@@ -32,16 +32,22 @@ trait NotificationStorage {
   def pendings(implicit ec: ExecutionContext): Enumerator[PendingTopic]
 
   def pendingTopicNotifications(implicit ec: ExecutionContext): Enumeratee[PendingTopic, (PendingTopic, List[Notification])]
+
+  def pendingProcessed(implicit ec: ExecutionContext): Enumeratee[PendingTopic, Boolean]
 }
 
 private[river] object NotificationStorage extends NotificationStorage {
   var stored: Vector[NotificationCase] = Vector.empty
 
+  def forTopic(t: PendingTopic) =
+    (n: Notification) => t.topic == n.topic && t.userId == n.userId && n.digest.exists(kv => kv._1 == t.channelId && kv._2.isBeforeNow)
+
   override def pendingTopicNotifications(implicit ec: ExecutionContext): Enumeratee[PendingTopic, (PendingTopic, List[Notification])] =
     Enumeratee.mapFlatten {
       t =>
+        val f = forTopic(t)
         Enumerator(
-          t -> stored.filter(n => t.topic == n.topic && t.userId == n.userId && n.digest.exists(kv => kv._1 == t.channelId && kv._2.isBeforeNow)).toList
+          t -> stored.filter(f).toList
         )
 
     }
@@ -60,6 +66,18 @@ private[river] object NotificationStorage extends NotificationStorage {
           nc.copy(digest = d.toMap)
         case no => no
       }
+  }
+
+
+  override def pendingProcessed(implicit ec: ExecutionContext): Enumeratee[PendingTopic, Boolean] = Enumeratee.map {
+    t =>
+      val f = forTopic(t)
+      stored = stored.map {
+        case n if f(n) =>
+          n.copy(digest = n.digest.filterNot(_._1 == t.channelId))
+        case n => n
+      }
+      true
   }
 
   override def findForFinder(implicit ec: ExecutionContext): Enumeratee[Finder, Notification] = ???
