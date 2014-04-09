@@ -91,7 +91,12 @@ trait River {
           .map(_.wrap.lift(en))
           .filter(_.isDefined)
           .map(_.get)
-          .foldLeft(Enumerator.empty[Envelop])(_ interleave _) |>>> Iteratee.getChunks map (es => en._2 -> es) map (Enumerator(_)))
+          .foldLeft(Enumerator.empty[Envelop])(_ interleave _) |>>> Iteratee.getChunks map (es => en._2 -> es) map (Enumerator(_)) recover {
+          case e: Throwable =>
+            play.api.Logger.error("[river] Cannot wrap " + en, e)
+            Enumerator.empty[(Notification, Seq[Envelop])]
+        }
+        )
     }
 
   /**
@@ -114,14 +119,20 @@ trait River {
               channels.find(_.id == e.channelId)
                 .map(_.instant.applyOrElse(e.view, (_: Any) => Future.successful(false)))
               ).filter(_.isDefined)
-              .map(_.get)).map(_.exists(b => b))
-          .map {
+              .map(_.get))
+          .map(_.exists(b => b)).recover {
+          case e: Throwable =>
+            play.api.Logger.error("[river] Error delivering instant message", e)
+            false
+        }.map {
           case true =>
+            // Any instant message is delivered, so we delay only digests
             envelops.filter {
               case _: Envelop.Digest => true
               case _ => false
             }.asInstanceOf[Seq[Envelop.Delay]]
           case false =>
+            // There's no delivered instant message, so we delay everything we could
             envelops.filter {
               case _: Envelop.Delay => true
               case _ => false
@@ -155,7 +166,11 @@ trait River {
       watch ><> buffer ><>
       storage.act ><> buffer ><>
       wrap ><> buffer ><>
-      instants ><> buffer |>> delay
+      instants ><> buffer |>>
+      delay recover {
+      case e: Throwable =>
+        play.api.Logger.error("[river] Error while delivering instants", e)
+    }
 
   /**
    * Just fire a single event with a special created flow
@@ -188,7 +203,11 @@ trait River {
       Enumerator(ns.map(_.eventId).asInstanceOf[TraversableOnce[String]]) &> logger.getByIds ><> Enumeratee.map[Event] {
         e =>
           e -> ns.find(_.eventId == e.id).get
-      } |>>> Iteratee.getChunks
+      } |>>> Iteratee.getChunks recover {
+        case e: Throwable =>
+          play.api.Logger.error("[river] Cannot zip with events", e)
+          Nil
+      }
   }
 
   /**
@@ -244,7 +263,11 @@ trait River {
       buffer ><> topicWithEvents ><>
       buffer ><> digestView ><>
       buffer ><> sendDigest ><>
-      buffer ><> storage.pendingProcessed |>> Iteratee.ignore
+      buffer ><> storage.pendingProcessed |>>
+      Iteratee.ignore recover {
+      case e: Throwable =>
+        play.api.Logger.error("[river] Error while delivering digest", e)
+    }
 
   /**
    * Runs all flows for default sources
