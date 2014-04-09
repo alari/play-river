@@ -42,12 +42,12 @@ trait River {
   def wrap(implicit ec: ExecutionContext): Enumeratee[(Event, Notification), (Notification, Seq[Envelop])] =
     Enumeratee
       .mapFlatten[(Event, Notification)] {
-      case (e, n) =>
-        Enumerator.flatten(wrappers
-          .foldLeft(Enumerator.empty[Envelop]) {
-          case (a, b) => Enumerator.interleave(a, b(e, n))
-        } |>>> Iteratee.getChunks map (es => n -> es) map (Enumerator(_)))
-
+      en =>
+       Enumerator.flatten(wrappers
+          .map(_.wrap.lift(en))
+          .filter(_.isDefined)
+          .map(_.get)
+          .foldLeft(Enumerator.empty[Envelop])(_ interleave _) |>>> Iteratee.getChunks map (es => en._2 -> es) map (Enumerator(_)))
     }
 
   def instants(implicit ec: ExecutionContext): Enumeratee[(Notification, Seq[Envelop]), (Notification, Seq[Envelop.Delay])] =

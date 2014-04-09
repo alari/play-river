@@ -38,17 +38,20 @@ class ReverSpec extends Specification {
 
 class TestWatcher(app: play.api.Application) extends Plugin with Watcher {
   override def watch(implicit ec: ExecutionContext) = {
-    case e => Enumerator(Watcher.Push(e, NotificationCase(e.id, "root", "topic")))
+    case e => Enumerator(e.push("root", "topic"))
   }
 }
 
 class TestWrapper(app: play.api.Application) extends Plugin with Wrapper {
-  override def apply(event: Event, notification: Notification)(implicit ec: ExecutionContext): Enumerator[Envelop] =
-    Enumerator(
-      Envelop.Instantly("play-logger", notification.toString),
+  override def wrap(implicit ec: ExecutionContext) = {
+    case (e, n) =>
+      Enumerator(
+      Envelop.Instantly("play-logger", n.toString),
       Envelop.DigestIfNotInstantly("play-logger", 20 millis),
       Envelop.Digest("play-logger", 10 millis)
     )
+  }
+
 }
 
 class TestDigestView(app: play.api.Application) extends Plugin with DigestView {
