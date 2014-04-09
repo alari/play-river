@@ -15,3 +15,8 @@ case class NotificationCase(
                              digest: Map[String, DateTime] = Map.empty,
                              contexts: Map[String, String] = Map.empty
                              ) extends Notification
+
+object NotificationCase {
+  def produce(event: Event, userId: String, topic: String) =
+    NotificationCase(event.id, userId, topic, contexts = event.contexts ++ event.artifacts)
+}
