@@ -43,7 +43,7 @@ trait River {
     Enumeratee
       .mapFlatten[(Event, Notification)] {
       en =>
-       Enumerator.flatten(wrappers
+        Enumerator.flatten(wrappers
           .map(_.wrap.lift(en))
           .filter(_.isDefined)
           .map(_.get)
@@ -122,11 +122,9 @@ trait River {
   def digestView(implicit ec: ExecutionContext): Enumeratee[(PendingTopic, List[(Event, Notification)]), (PendingTopic, Any)] = Enumeratee.mapFlatten {
     case (t, is) =>
       Enumerator.flatten(
-        Future sequence digestViews.flatMap(_(t, is)) map {
-          vs => vs.map(v => t -> v)
-        } map {
-          sq => Enumerator.enumerate(sq)
-        }
+        Future.sequence(digestViews.map(_.toDigest.lift(t, is))
+          .filter(_.isDefined)
+          .map(_.get)).map(_.map(v => t -> v)).map(Enumerator.enumerate(_))
       )
   }
 

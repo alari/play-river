@@ -5,7 +5,7 @@ import org.specs2.runner._
 import org.junit.runner._
 import play.api.test.{FakeApplication, WithApplication}
 import play.api.Plugin
-import mirari.river.data.{EventCase, NotificationCase, Notification, Event}
+import mirari.river.data.EventCase
 import scala.concurrent.{Future, ExecutionContext}
 import play.api.libs.iteratee.Enumerator
 import scala.concurrent.duration._
@@ -26,7 +26,7 @@ class ReverSpec extends Specification {
     ))) {
       (1 to 4000).foreach {
         i =>
-          //play.api.Logger.warn("i = "+i)
+        //play.api.Logger.warn("i = "+i)
           River.fire(EventCase("event-id-" + i, userId = None, id = "test-" + i))
       }
 
@@ -46,17 +46,19 @@ class TestWrapper(app: play.api.Application) extends Plugin with Wrapper {
   override def wrap(implicit ec: ExecutionContext) = {
     case (e, n) =>
       Enumerator(
-      Envelop.Instantly("play-logger", n.toString),
-      Envelop.DigestIfNotInstantly("play-logger", 20 millis),
-      Envelop.Digest("play-logger", 10 millis)
-    )
+        Envelop.Instantly("play-logger", n.toString),
+        Envelop.DigestIfNotInstantly("play-logger", 20 millis),
+        Envelop.Digest("play-logger", 10 millis)
+      )
   }
 
 }
 
 class TestDigestView(app: play.api.Application) extends Plugin with DigestView {
-  override def apply(topic: PendingTopic, items: Seq[(Event, Notification)])(implicit ec: ExecutionContext): Option[Future[Any]] =
-    Some(Future.successful("DIGEST: " + items))
+  override def toDigest(implicit ec: ExecutionContext) = {
+    case (t, is) =>
+      Future.successful("DIGEST: " + is)
+  }
 }
 
 class TestChannel(app: play.api.Application) extends Plugin with Channel {
@@ -64,13 +66,13 @@ class TestChannel(app: play.api.Application) extends Plugin with Channel {
 
   override def digest(implicit ec: ExecutionContext) = {
     case s: String =>
-      play.api.Logger.info("digest --- "+s)
+      play.api.Logger.info("digest --- " + s)
       Future.successful(true)
   }
 
   override def instant(implicit ec: ExecutionContext) = {
     case s: String =>
-      play.api.Logger.debug("instant ========= "+s)
+      play.api.Logger.debug("instant ========= " + s)
       Future.successful(true)
   }
 }
