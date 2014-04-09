@@ -74,7 +74,9 @@ trait River {
             }.asInstanceOf[Seq[Envelop.Delay]]
           case false =>
             envelops.filter {
-              case _: Envelop.Delay => true
+              case ed: Envelop.Delay =>
+                play.api.Logger.debug("delay = " + ed)
+                true
               case _ => false
             }.asInstanceOf[Seq[Envelop.Delay]]
         }.map(sq => Enumerator(notification -> sq))

@@ -26,7 +26,9 @@ class ReverSpec extends Specification {
     ))) {
       (1 to 4000).foreach {
         i =>
-        //play.api.Logger.warn("i = "+i)
+        if(i % 100 == 0) {
+          play.api.Logger.warn("i = "+i)
+        }
           River.fire(EventCase("event-id-" + i, userId = None, id = "test-" + i))
       }
 
