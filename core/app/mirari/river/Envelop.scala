@@ -11,11 +11,15 @@ abstract sealed class Envelop {
 }
 
 object Envelop {
-  sealed trait Delay extends Envelop{
+
+  sealed trait Delay extends Envelop {
     def delay: Duration
   }
 
   case class Instantly[V](channelId: String, view: V) extends Envelop
+
   case class DigestIfNotInstantly[V](channelId: String, delay: Duration) extends Delay
+
   case class Digest(channelId: String, delay: Duration) extends Delay
+
 }

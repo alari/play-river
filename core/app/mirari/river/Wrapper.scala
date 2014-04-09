@@ -9,5 +9,5 @@ import play.api.libs.iteratee.Enumerator
  * @since 4/8/14
  */
 trait Wrapper {
-  def wrap(implicit ec: ExecutionContext): PartialFunction[(Event,Notification),Enumerator[Envelop]]
+  def wrap(implicit ec: ExecutionContext): PartialFunction[(Event, Notification), Enumerator[Envelop]]
 }

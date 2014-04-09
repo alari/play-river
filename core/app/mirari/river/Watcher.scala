@@ -9,7 +9,7 @@ import scala.concurrent.ExecutionContext
  * @since 4/8/14
  */
 trait Watcher {
-  def watch(implicit ec: ExecutionContext): PartialFunction[Event,Enumerator[Watcher.Action]]
+  def watch(implicit ec: ExecutionContext): PartialFunction[Event, Enumerator[Watcher.Action]]
 }
 
 object Watcher {

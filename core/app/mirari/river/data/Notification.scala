@@ -8,9 +8,14 @@ import org.joda.time.DateTime
  */
 trait Notification extends Contexts {
   def eventId: String
+
   def userId: String
+
   def timestamp: DateTime
+
   def read: Boolean
-  def digest: Map[String,DateTime]
+
+  def digest: Map[String, DateTime]
+
   def topic: String
 }

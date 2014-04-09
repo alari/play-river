@@ -8,5 +8,5 @@ import mirari.river.data.{Notification, Event}
  * @since 4/8/14
  */
 trait DigestView {
-  def toDigest(implicit ec: ExecutionContext): PartialFunction[(PendingTopic,Seq[(Event,Notification)]),Future[Any]]
+  def toDigest(implicit ec: ExecutionContext): PartialFunction[(PendingTopic, Seq[(Event, Notification)]), Future[Any]]
 }

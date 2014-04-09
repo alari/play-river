@@ -1,7 +1,5 @@
 package mirari.river
 
-import mirari.river.channel.Channel
-
 /**
  * @author alari
  * @since 4/8/14

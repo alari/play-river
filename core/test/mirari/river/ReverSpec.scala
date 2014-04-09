@@ -9,7 +9,6 @@ import mirari.river.data.EventCase
 import scala.concurrent.{Future, ExecutionContext}
 import play.api.libs.iteratee.Enumerator
 import scala.concurrent.duration._
-import mirari.river.channel.Channel
 
 /**
  * @author alari
