@@ -49,7 +49,9 @@ class ReverSpec extends Specification {
 }
 
 class TestWatcher(app: play.api.Application) extends Plugin with Watcher {
-  override def apply(e: Event)(implicit ec: ExecutionContext): Enumerator[Action] = Enumerator(Watcher.Push(e, NotificationCase(e.id, "root", "topic")))
+  override def watch(implicit ec: ExecutionContext) = {
+    case e => Enumerator(Watcher.Push(e, NotificationCase(e.id, "root", "topic")))
+  }
 }
 
 class TestWrapper(app: play.api.Application) extends Plugin with Wrapper {

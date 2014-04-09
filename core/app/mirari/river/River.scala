@@ -24,9 +24,9 @@ trait River {
     Enumeratee
       .mapFlatten[Event](e =>
       watchers
-        .foldLeft(Enumerator.empty[Watcher.Action]) {
-        case (a, b) => Enumerator.interleave(a, b(e))
-      })
+        .foldLeft(PartialFunction.empty[Event,Enumerator[Watcher.Action]]) {
+        case (a, b) => a.orElse(b.watch)
+      }.applyOrElse(e, (_: Event) => Enumerator.empty))
 
   def storage: NotificationStorage
 
