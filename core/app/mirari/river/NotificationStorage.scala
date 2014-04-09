@@ -90,14 +90,17 @@ private[river] object NotificationStorage extends NotificationStorage {
         nc
     }
 
-  implicit def n2nc(n: Notification): NotificationCase = NotificationCase(
-    n.eventId,
-    n.userId,
-    n.topic,
-    n.timestamp,
-    n.read,
-    n.digest,
-    n.contexts
-  )
+  implicit def n2nc(n: Notification): NotificationCase = n match {
+    case nc: NotificationCase => nc
+    case _ => NotificationCase(
+      n.eventId,
+      n.userId,
+      n.topic,
+      n.timestamp,
+      n.read,
+      n.digest,
+      n.contexts
+    )
+  }
 
 }

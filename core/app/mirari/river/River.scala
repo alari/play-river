@@ -1,7 +1,7 @@
 package mirari.river
 
 import play.api.libs.iteratee.{Concurrent, Iteratee, Enumerator, Enumeratee}
-import mirari.river.data.{Notification, Event}
+import mirari.river.data.{EventCase, Notification, Event}
 import mirari.river.channel.Channel
 import scala.concurrent.{Future, ExecutionContext}
 import org.joda.time.DateTime
@@ -184,6 +184,16 @@ object River extends River {
   val (source, sender) = Concurrent.broadcast[Event]
 
   override def fire(e: Event): Unit = sender.push(e)
+
+  def fire(action: String,
+           userId: Option[String],
+
+           contexts: Map[String, String] = Map.empty,
+           artifacts: Map[String, String] = Map.empty,
+
+           timestamp: DateTime = DateTime.now()): Unit = fire(EventCase(
+    action, userId, contexts, artifacts, timestamp
+  ))
 
   private implicit val ec = ExecutionContext.fromExecutorService(ExecutorServiceUtil.newExecutorService())
 
