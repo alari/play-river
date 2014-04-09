@@ -5,14 +5,11 @@ import org.specs2.runner._
 import org.junit.runner._
 import play.api.test.{FakeApplication, WithApplication}
 import play.api.Plugin
-import mirari.river.data.{Notification, Event}
+import mirari.river.data.{EventCase, NotificationCase, Notification, Event}
 import scala.concurrent.{Future, ExecutionContext}
 import play.api.libs.iteratee.Enumerator
-import mirari.river.Watcher.Action
-import mirari.river.NotificationStorage.NotificationCase
 import scala.concurrent.duration._
 import mirari.river.channel.Channel
-import org.joda.time.DateTime
 
 /**
  * @author alari
@@ -30,21 +27,12 @@ class ReverSpec extends Specification {
       (1 to 4000).foreach {
         i =>
           //play.api.Logger.warn("i = "+i)
-          River.fire(EventCase("event-id-" + i, "test-" + i))
+          River.fire(EventCase("event-id-" + i, userId = None, id = "test-" + i))
       }
 
       1 must_== 1
     }
   }
-
-  case class EventCase(
-                        id: String,
-                        action: String,
-                        artifacts: Map[String, String] = Map.empty,
-                        userId: Option[String] = None,
-                        timestamp: DateTime = DateTime.now(),
-                        contexts: Map[String, String] = Map.empty
-                        ) extends Event
 
 }
 

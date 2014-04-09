@@ -1,7 +1,7 @@
 package mirari.river
 
 import scala.concurrent.ExecutionContext
-import mirari.river.data.{Event, Notification}
+import mirari.river.data.{NotificationCase, Event, Notification}
 import play.api.libs.iteratee.{Iteratee, Enumerator, Enumeratee}
 import org.joda.time.DateTime
 
@@ -99,15 +99,5 @@ private[river] object NotificationStorage extends NotificationStorage {
     n.digest,
     n.contexts
   )
-
-  case class NotificationCase(
-                               eventId: String,
-                               userId: String,
-                               topic: String,
-                               timestamp: DateTime = DateTime.now(),
-                               read: Boolean = false,
-                               digest: Map[String, DateTime] = Map.empty,
-                               contexts: Map[String, String] = Map.empty
-                               ) extends Notification
 
 }
