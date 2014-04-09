@@ -1,6 +1,6 @@
 package mirari.river
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{Future, ExecutionContext}
 import mirari.river.data.{NotificationCase, Event, Notification}
 import play.api.libs.iteratee.{Iteratee, Enumerator, Enumeratee}
 import org.joda.time.DateTime
@@ -10,8 +10,6 @@ import org.joda.time.DateTime
  * @since 4/8/14
  */
 trait NotificationStorage {
-
-
   def insert(implicit ec: ExecutionContext): Enumeratee[Notification, Notification]
 
   def findForFinder(implicit ec: ExecutionContext): Enumeratee[Finder, Notification]
@@ -22,12 +20,18 @@ trait NotificationStorage {
     case Watcher.Push(e, n) =>
       Enumerator(n) &> insert ><> Enumeratee.map(nn => (e, nn))
     case Watcher.Read(f) =>
-      // TODO
+      markRead(f)
       Enumerator.empty
     case Watcher.Remove(f) =>
-      // TODO
+      remove(f)
       Enumerator.empty
   }
+
+  def markRead(finder: Finder)(implicit ec: ExecutionContext): Future[Boolean]
+
+  def remove(finder: Finder)(implicit ec: ExecutionContext): Future[Boolean]
+
+  def count(finder: Finder)(implicit ec: ExecutionContext): Future[Long]
 
   def pendings(implicit ec: ExecutionContext): Enumerator[PendingTopic]
 
@@ -41,6 +45,14 @@ private[river] object NotificationStorage extends NotificationStorage {
 
   def forTopic(t: PendingTopic) =
     (n: Notification) => t.topic == n.topic && t.userId == n.userId && n.digest.exists(kv => kv._1 == t.channelId && kv._2.isBeforeNow)
+
+  def matches(f: Finder) =
+    (n: Notification) =>
+      f.userId.map(_ == n.userId).getOrElse(true) &&
+        f.contexts.map(_.forall(p => n.contexts.exists(_ == p))).getOrElse(true) &&
+        f.delayed.map(n.digest.contains).getOrElse(true) &&
+        f.read.map(_ == n.read).getOrElse(true) &&
+        f.topic.map(_ == n.topic).getOrElse(true)
 
   override def pendingTopicNotifications(implicit ec: ExecutionContext): Enumeratee[PendingTopic, (PendingTopic, List[Notification])] =
     Enumeratee.mapFlatten {
@@ -80,7 +92,12 @@ private[river] object NotificationStorage extends NotificationStorage {
       true
   }
 
-  override def findForFinder(implicit ec: ExecutionContext): Enumeratee[Finder, Notification] = ???
+  override def findForFinder(implicit ec: ExecutionContext): Enumeratee[Finder, Notification] =
+    Enumeratee.mapFlatten {
+      finder =>
+        val f = matches(finder)
+        Enumerator.enumerate(stored.filter(f))
+    }
 
   override def insert(implicit ec: ExecutionContext): Enumeratee[Notification, Notification] =
     Enumeratee.map {
@@ -103,4 +120,27 @@ private[river] object NotificationStorage extends NotificationStorage {
     )
   }
 
+  override def count(finder: Finder)(implicit ec: ExecutionContext): Future[Long] = {
+    val f = matches(finder)
+    Future(stored.count(f))
+  }
+
+  override def remove(finder: Finder)(implicit ec: ExecutionContext): Future[Boolean] = {
+    val f = matches(finder)
+    Future {
+      stored = stored.filterNot(f)
+      true
+    }
+  }
+
+  override def markRead(finder: Finder)(implicit ec: ExecutionContext): Future[Boolean] = {
+    val f = matches(finder)
+    Future {
+      stored = stored.map {
+        case n if f(n) => n.copy(read = true)
+        case n => n
+      }
+      true
+    }
+  }
 }

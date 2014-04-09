@@ -9,5 +9,5 @@ case class Finder(
                    contexts: Option[Map[String, String]] = None,
                    read: Option[Boolean] = None,
                    topic: Option[String] = None,
-                   delayed: Option[Channel] = None
+                   delayed: Option[String] = None
                    )
