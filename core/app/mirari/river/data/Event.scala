@@ -14,4 +14,6 @@ trait Event extends Contexts with Artifacts {
   def action: String
 
   def timestamp: DateTime
+
+  def notification(userId: String, topic: String) = NotificationCase.produce(this, userId, topic)
 }
