@@ -42,6 +42,7 @@ private[river] object RiverLogger extends RiverLogger {
     }
 
   implicit def e2ec(e: Event): EventCase = e match {
+    case ec: EventCase if ec.id == null => ec.copy(id = UUID.randomUUID().toString)
     case ec: EventCase => ec
     case _ => EventCase(
       action = e.action,
