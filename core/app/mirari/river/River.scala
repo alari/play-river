@@ -239,7 +239,7 @@ trait River {
    * @return
    */
   def digest(src: Enumerator[River.CheckDelayed.type])(implicit ec: ExecutionContext) =
-    src &> debug("ping") ><> pendings ><> debug("pendings are there") ><>
+    src &> pendings ><>
       buffer ><> storage.pendingTopicNotifications ><>
       buffer ><> topicWithEvents ><>
       buffer ><> digestView ><>
