@@ -88,7 +88,7 @@ trait River {
         case (n, Seq()) =>
           n -> Seq.empty[(String, DateTime)]
         case (n, es) =>
-          n -> es.map(e => e.channelId -> DateTime.now().plusMinutes(e.delay.toMinutes.toInt))
+          n -> es.map(e => e.channelId -> DateTime.now().plusSeconds(e.delay.toSeconds.toInt))
       } &>> storage.delay
 
   def flow(src: Enumerator[Event])(implicit ec: ExecutionContext) =
