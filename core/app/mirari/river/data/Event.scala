@@ -1,6 +1,7 @@
 package mirari.river.data
 
 import org.joda.time.DateTime
+import mirari.river.Watcher
 
 /**
  * @author alari
@@ -16,4 +17,6 @@ trait Event extends Contexts with Artifacts {
   def timestamp: DateTime
 
   def notification(userId: String, topic: String) = NotificationCase.produce(this, userId, topic)
+
+  def push(userId: String, topic: String) = Watcher.Push(this, notification(userId, topic))
 }
