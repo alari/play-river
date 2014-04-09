@@ -136,7 +136,12 @@ trait River {
   }
 
   def digest(src: Enumerator[River.CheckDelayed.type])(implicit ec: ExecutionContext) =
-    src &> pendings ><> storage.pendingTopicNotifications ><> topicWithEvents ><> digestView ><> sendDigest ><> storage.pendingProcessed |>> Iteratee.ignore
+    src &> pendings ><>
+      buffer ><> storage.pendingTopicNotifications ><>
+      buffer ><> topicWithEvents ><>
+      buffer ><> digestView ><>
+      buffer ><> sendDigest ><>
+      buffer ><> storage.pendingProcessed |>> Iteratee.ignore
 
   def run()(implicit ec: ExecutionContext) {
     digest(checkDelayedSource)
