@@ -69,13 +69,13 @@ class TestDigestView(app: play.api.Application) extends Plugin with DigestView {
 class TestChannel(app: play.api.Application) extends Plugin with Channel {
   override def id: String = "play-logger"
 
-  override def digest(view: Any)(implicit ec: ExecutionContext): Future[Boolean] = view match {
+  override def digest(implicit ec: ExecutionContext) = {
     case s: String =>
       play.api.Logger.info("digest --- "+s)
       Future.successful(true)
   }
 
-  override def instant(view: Any)(implicit ec: ExecutionContext): Future[Boolean] = view match {
+  override def instant(implicit ec: ExecutionContext) = {
     case s: String =>
       play.api.Logger.debug("instant ========= "+s)
       Future.successful(true)

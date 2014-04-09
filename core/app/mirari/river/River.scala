@@ -61,7 +61,7 @@ trait River {
             instantly
               .map(e =>
               channels.find(_.id == e.channelId)
-                .map(_.instant(e.view))
+                .map(_.instant.applyOrElse(e.view, (_: Any) => Future.successful(false)))
               ).filter(_.isDefined)
               .map(_.get)).map(_.exists(b => b))
           .map {
@@ -130,7 +130,7 @@ trait River {
 
   def sendDigest(implicit ec: ExecutionContext): Enumeratee[(PendingTopic, Any), PendingTopic] = Enumeratee.mapM {
     case (t, v) =>
-      channels.find(_.id == t.channelId).map(_.digest(v).map(_ => t)).getOrElse(Future.successful(t))
+      channels.find(_.id == t.channelId).map(_.digest.applyOrElse(v, (_: Any) => Future.successful(false)).map(_ => t)).getOrElse(Future.successful(t))
   }
 
   def digest(src: Enumerator[River.CheckDelayed.type])(implicit ec: ExecutionContext) =

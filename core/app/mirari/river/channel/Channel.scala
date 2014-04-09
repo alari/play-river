@@ -12,7 +12,7 @@ trait Channel {
   def id: String
 
 
-  def instant(view: Any)(implicit ec: ExecutionContext): Future[Boolean] = Future.successful(false)
+  def instant(implicit ec: ExecutionContext): PartialFunction[Any,Future[Boolean]] = PartialFunction.empty
 
-  def digest(view: Any)(implicit ec: ExecutionContext) = Future.successful(false)
+  def digest(implicit ec: ExecutionContext): PartialFunction[Any,Future[Boolean]] = PartialFunction.empty
 }
