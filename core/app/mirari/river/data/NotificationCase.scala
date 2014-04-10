@@ -18,5 +18,5 @@ case class NotificationCase(
 
 object NotificationCase {
   def produce(event: Event, userId: String, topic: String) =
-    NotificationCase(event.id, userId, topic, contexts = event.contexts ++ event.artifacts)
+    NotificationCase(event.id, userId, topic, contexts = event.contexts ++ event.artifacts, read = event.userId.exists(_ == userId))
 }
