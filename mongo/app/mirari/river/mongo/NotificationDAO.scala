@@ -42,22 +42,25 @@ class NotificationDAO(app: play.api.Application) extends Plugin with Notificatio
     dao.count(finder)
 
   override def remove(finder: Finder)(implicit ec: ExecutionContext): Future[Boolean] =
-  dao.remove(finder)
+    dao.remove(finder)
 
   override def markRead(finder: Finder)(implicit ec: ExecutionContext): Future[Boolean] =
-  dao.markRead(finder)
+    dao.markRead(finder)
 
-  override def delay(implicit ec: ExecutionContext): Iteratee[(Notification, Seq[(String, DateTime)]), Unit] = Iteratee.foreach {
-    case (n: NotificationDomain, ds) =>
-      dao.delay(n, ds)
-  }
+  override def delay(implicit ec: ExecutionContext): Iteratee[(Notification, Seq[(String, DateTime)]), Unit] =
+    Iteratee.foreach {
+      case (n: NotificationDomain, ds) =>
+        dao.delay(n, ds)
+    }
 
-  override def findForFinder(implicit ec: ExecutionContext): Enumeratee[Finder, Notification] = Enumeratee.map(dao.finderToSearch) ><> dao.Stream.findBy ><> dao.nd2nee
+  override def findForFinder(implicit ec: ExecutionContext): Enumeratee[Finder, Notification] =
+    Enumeratee.map(dao.finderToSearch) ><> dao.Stream.findBy ><> dao.nd2nee
 
-  override def insert(implicit ec: ExecutionContext): Enumeratee[Notification, Notification] = Enumeratee.map(dao.n2nd) ><> dao.Stream.insert ><> dao.nd2nee
+  override def insert(implicit ec: ExecutionContext): Enumeratee[Notification, Notification] =
+    Enumeratee.map(dao.n2nd) ><> Enumeratee.mapM(n => dao.insert(n).mapTo[Notification])
 }
 
-object NotificationDAO extends MongoDAO.Oid[NotificationDomain]("river.notifications") with MongoStreams[NotificationDomain] {
+object NotificationDAO extends MongoDAO.Oid[NotificationDomain]("river.notification") with MongoStreams[NotificationDomain] {
   implicit val pendingF = Json.format[NotificationPending]
   protected implicit val format = Json.format[NotificationDomain]
 
@@ -65,15 +68,17 @@ object NotificationDAO extends MongoDAO.Oid[NotificationDomain]("river.notificat
 
   def nd2n(nd: NotificationDomain): Notification = nd: Notification
 
+  override def insert(n: NotificationDomain)(implicit ec: ExecutionContext) = super.insert(n)
+
   def markProcessed(topic: PendingTopic)(implicit ec: ExecutionContext): Future[Boolean] =
-    collection.update(topic: JsObject, Json.obj("$unset" -> Json.obj(s"digest.${topic.channelId}" -> true)), multi = true).map(failOrTrue)
+    collection.update(topic: JsObject, Json.obj("$pull" -> Json.obj("pending" -> Json.obj("channelId" -> topic.channelId))), multi = true).map(failOrTrue)
 
   def delay(n: NotificationDomain, delays: Seq[(String, DateTime)])(implicit ec: ExecutionContext) =
     set(n.id, Json.obj("pending" -> delays.map(ab => NotificationPending(ab._1, ab._2))))
 
   def pendings(implicit ec: ExecutionContext): Enumerator[PendingTopic] = {
     import reactivemongo.bson.{BSONDocument => bd}
-    val delayedTill = "pending.delayedTill" -> bd("$lt" -> BSONDateTime(System.currentTimeMillis()))
+    val delayedTill = "pending.delayedTill" -> bd("$lt" -> BSONLong(System.currentTimeMillis()))
 
     Enumerator.flatten(db.command(Aggregate(collectionName, Seq(
       Match(bd("read" -> false, delayedTill)),
@@ -87,7 +92,7 @@ object NotificationDAO extends MongoDAO.Oid[NotificationDomain]("river.notificat
       GroupMulti(
         "topic" -> "topic",
         "userId" -> "userId",
-        "pending.channelId" -> "channelId"
+        "channelId" -> "pending.channelId"
       )()
     ))).map {
       _.map {
@@ -111,7 +116,14 @@ object NotificationDAO extends MongoDAO.Oid[NotificationDomain]("river.notificat
       GroupField("eventId")(),
       Group(BSONInteger(0))("n" -> SumValue(1))
     ))).map {
-      _.headOption.flatMap(_.getAs[BSONLong]("n").map(_.value)).getOrElse(-1)
+      _.headOption.map {
+        doc =>
+          val d = BSONDocumentFormat.writes(doc)
+          (d \ "n").asOpt[Long].getOrElse {
+            play.api.Logger.error(s"[river] Cannot count $finder, got " + d)
+            -1l
+          }
+      }.getOrElse(0)
     }
   }
 
@@ -123,16 +135,17 @@ object NotificationDAO extends MongoDAO.Oid[NotificationDomain]("river.notificat
 
   implicit def n2nd(n: Notification): NotificationDomain = n match {
     case nd: NotificationDomain => nd
-    case _ => NotificationDomain(
-      eventId = n.eventId,
-      userId = n.userId,
-      topic = n.topic,
-      timestamp = n.timestamp,
-      read = n.read,
-      pending = n.digest.map(ab => NotificationPending(ab._1, ab._2)).toSeq,
-      contexts = n.contexts,
-      _id = generateSomeId
-    )
+    case _ =>
+      NotificationDomain(
+        eventId = n.eventId,
+        userId = n.userId,
+        topic = n.topic,
+        timestamp = n.timestamp,
+        read = n.read,
+        pending = n.digest.map(ab => NotificationPending(ab._1, ab._2)).toSeq,
+        contexts = n.contexts,
+        _id = generateSomeId
+      )
   }
 
   implicit def topicToSearch(topic: PendingTopic): JsObject =

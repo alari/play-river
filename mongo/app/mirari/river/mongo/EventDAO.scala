@@ -16,7 +16,7 @@ import org.joda.time.DateTime
 class EventDAO(app: play.api.Application) extends Plugin with RiverLogger {
   def dao = EventDAO
 
-  override def insert(implicit ec: ExecutionContext): Enumeratee[Event, Event] = Enumeratee.map(dao.e2ed) ><> dao.Stream.insert ><> dao.ed2ee
+  override def insert(implicit ec: ExecutionContext): Enumeratee[Event, Event] = Enumeratee.mapM(e => dao.insert(dao.e2ed(e)).mapTo[Event])
 
   override def getByIds(implicit ec: ExecutionContext): Enumeratee[TraversableOnce[String], Event] = dao.Stream.getByIds ><> dao.ed2ee
 
@@ -25,6 +25,8 @@ class EventDAO(app: play.api.Application) extends Plugin with RiverLogger {
 
 object EventDAO extends MongoDAO.Oid[EventDomain]("river.event") with MongoStreams[EventDomain] {
   implicit protected val format = Json.format[EventDomain]
+
+  override def insert(e: EventDomain)(implicit ec: ExecutionContext) = super.insert(e)
 
   def ed2ee(implicit ec: ExecutionContext) = Enumeratee.map[EventDomain](ed2e)
 
