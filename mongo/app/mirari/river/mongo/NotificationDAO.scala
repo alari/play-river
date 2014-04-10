@@ -26,7 +26,7 @@ import play.modules.reactivemongo.json.BSONFormats.BSONDocumentFormat
  * @author alari
  * @since 4/10/14
  */
-class NotificationDAO extends Plugin with NotificationStorage {
+class NotificationDAO(app: play.api.Application) extends Plugin with NotificationStorage {
   def dao = NotificationDAO
 
   override def pendingProcessed(implicit ec: ExecutionContext): Enumeratee[PendingTopic, Boolean] =
