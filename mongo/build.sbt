@@ -20,4 +20,8 @@ play.Project.playScalaSettings
 
 resolvers += "quonb" at "http://mvn.quonb.org/repo/"
 
+libraryDependencies += "ru.mirari" %% "play-river" % "1.0-SNAPSHOT"
+
+libraryDependencies += "ru.mirari" %% "play-mongo" % "1.0-SNAPSHOT"
+
 testOptions in Test += Tests.Argument("junitxml")
