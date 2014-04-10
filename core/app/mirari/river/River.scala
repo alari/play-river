@@ -83,20 +83,20 @@ trait River {
    * @param ec
    * @return
    */
-  def wrap(implicit ec: ExecutionContext): Enumeratee[(Event, Notification), (Notification, Seq[Envelop])] =
+  def wrap(implicit ec: ExecutionContext): Enumeratee[(Event, Notification), (Notification, List[Envelop])] =
     Enumeratee
       .mapFlatten[(Event, Notification)] {
       en =>
-        Enumerator.flatten(wrappers
+        val f = wrappers
           .map(_.wrap.lift(en))
           .filter(_.isDefined)
           .map(_.get)
-          .foldLeft(Enumerator.empty[Envelop])(_ interleave _) |>>> Iteratee.getChunks map (es => en._2 -> es) map (Enumerator(_)) recover {
+          .foldLeft(Enumerator.empty[Envelop])(_ interleave _) |>>> Iteratee.getChunks map (es => en._2 -> es) map (Enumerator(_))
+        Enumerator.flatten(f.recover {
           case e: Throwable =>
-            play.api.Logger.error("[river] Cannot wrap " + en, e)
-            Enumerator.empty[(Notification, Seq[Envelop])]
-        }
-        )
+          play.api.Logger.error("[river] Cannot wrap "+en._1, e)
+          Enumerator.empty[(Notification, List[Envelop])]
+        })
     }
 
   /**
@@ -104,7 +104,7 @@ trait River {
    * @param ec
    * @return
    */
-  def instants(implicit ec: ExecutionContext): Enumeratee[(Notification, Seq[Envelop]), (Notification, Seq[Envelop.Delay])] =
+  def instants(implicit ec: ExecutionContext): Enumeratee[(Notification, List[Envelop]), (Notification, Seq[Envelop.Delay])] =
     Enumeratee.mapFlatten {
       case (notification, envelops) =>
         val instantly = envelops.filter {
