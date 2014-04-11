@@ -64,6 +64,11 @@ object NotificationDAO extends MongoDAO.Oid[NotificationDomain]("river.notificat
   implicit val pendingF = Json.format[NotificationPending]
   protected implicit val format = Json.format[NotificationDomain]
 
+  ensureIndex("read" -> Descending, "pending.delayedTill" -> Ascending)
+  ensureIndex("pending.delayedTill" -> Ascending)
+  ensureIndex("userId" -> Ascending, "topic" -> Ascending, "pending.channelId" -> Ascending)
+  ensureIndex("contexts" -> Ascending, "userId" -> Ascending)
+
   def nd2nee(implicit ec: ExecutionContext) = Enumeratee.map[NotificationDomain](nd2n)
 
   def nd2n(nd: NotificationDomain): Notification = nd: Notification
