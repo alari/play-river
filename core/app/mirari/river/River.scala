@@ -94,8 +94,8 @@ trait River {
           .foldLeft(Enumerator.empty[Envelop])(_ interleave _) |>>> Iteratee.getChunks map (es => en._2 -> es) map (Enumerator(_))
         Enumerator.flatten(f.recover {
           case e: Throwable =>
-          play.api.Logger.error("[river] Cannot wrap "+en._1, e)
-          Enumerator.empty[(Notification, List[Envelop])]
+            play.api.Logger.error("[river] Cannot wrap " + en._1, e)
+            Enumerator.empty[(Notification, List[Envelop])]
         })
     }
 
@@ -160,16 +160,17 @@ trait River {
    * @param ec
    * @return
    */
-  def flow(src: Enumerator[Event])(implicit ec: ExecutionContext) =
+  def flow(src: => Enumerator[Event])(implicit ec: ExecutionContext): Future[Unit] =
     src &> buffer[Event] ><>
       logger.insert ><> buffer ><>
       watch ><> buffer ><>
       storage.act ><> buffer ><>
       wrap ><> buffer ><>
-      instants ><> buffer |>>
-      delay recover {
+      instants ><> buffer |>>>
+      delay recoverWith {
       case e: Throwable =>
         play.api.Logger.error("[river] Error while delivering instants", e)
+        flow(src)
     }
 
   /**
@@ -257,17 +258,20 @@ trait River {
    * @param ec
    * @return
    */
-  def digest(src: Enumerator[River.CheckDelayed.type])(implicit ec: ExecutionContext) =
+  def digest(src: => Enumerator[River.CheckDelayed.type])(implicit ec: ExecutionContext): Future[Unit] = {
     src &> pendings ><>
       buffer ><> storage.pendingTopicNotifications ><>
       buffer ><> topicWithEvents ><>
       buffer ><> digestView ><>
       buffer ><> sendDigest ><>
-      buffer ><> storage.pendingProcessed |>>
-      Iteratee.ignore recover {
+      buffer ><> storage.pendingProcessed |>>>
+      Iteratee.skipToEof recoverWith {
       case e: Throwable =>
-        play.api.Logger.error("[river] Error while delivering digest", e)
+        play.api.Logger.error("[river] Digest stream processing failed, trying to recover", e)
+        digest(src)
     }
+
+  }
 
   /**
    * Runs all flows for default sources

@@ -15,7 +15,7 @@ import scala.concurrent.duration._
  * @since 4/8/14
  */
 @RunWith(classOf[JUnitRunner])
-class ReverSpec extends Specification {
+class RiverSpec extends Specification {
   "river" should {
     "work" in new WithApplication(FakeApplication(additionalPlugins = Seq(
       "mirari.river.TestWatcher",
