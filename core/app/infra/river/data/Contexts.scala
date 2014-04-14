@@ -1,4 +1,4 @@
-package mirari.river.data
+package infra.river.data
 
 /**
  * @author alari

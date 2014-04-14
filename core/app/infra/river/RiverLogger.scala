@@ -1,8 +1,8 @@
-package mirari.river
+package infra.river
 
 import scala.concurrent.ExecutionContext
 import play.api.libs.iteratee.{Enumerator, Enumeratee}
-import mirari.river.data.{EventCase, Event}
+import infra.river.data.{EventCase, Event}
 import java.util.UUID
 
 /**

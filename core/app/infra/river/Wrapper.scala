@@ -1,6 +1,6 @@
-package mirari.river
+package infra.river
 
-import mirari.river.data.{Event, Notification}
+import infra.river.data.{Event, Notification}
 import scala.concurrent.ExecutionContext
 import play.api.libs.iteratee.Enumerator
 

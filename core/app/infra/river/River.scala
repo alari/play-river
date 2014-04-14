@@ -1,7 +1,7 @@
-package mirari.river
+package infra.river
 
 import play.api.libs.iteratee.{Concurrent, Iteratee, Enumerator, Enumeratee}
-import mirari.river.data.{EventCase, Notification, Event}
+import infra.river.data.{EventCase, Notification, Event}
 import scala.concurrent.{Future, ExecutionContext}
 import org.joda.time.DateTime
 import ch.qos.logback.core.util.ExecutorServiceUtil

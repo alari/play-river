@@ -1,7 +1,7 @@
-package mirari.river.data
+package infra.river.data
 
 import org.joda.time.DateTime
-import mirari.river.Watcher
+import infra.river.Watcher
 
 /**
  * @author alari

@@ -1,7 +1,7 @@
-package mirari.river
+package infra.river
 
 import scala.concurrent.{Future, ExecutionContext}
-import mirari.river.data.{Notification, Event}
+import infra.river.data.{Notification, Event}
 
 /**
  * @author alari

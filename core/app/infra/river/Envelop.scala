@@ -1,4 +1,4 @@
-package mirari.river
+package infra.river
 
 import scala.concurrent.duration.Duration
 

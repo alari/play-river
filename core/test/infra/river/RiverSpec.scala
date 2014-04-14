@@ -1,14 +1,14 @@
-package mirari.river
+package infra.river
 
 import org.specs2.mutable._
 import org.specs2.runner._
 import org.junit.runner._
 import play.api.test.{FakeApplication, WithApplication}
 import play.api.Plugin
-import mirari.river.data.EventCase
 import scala.concurrent.{Future, ExecutionContext}
 import play.api.libs.iteratee.Enumerator
 import scala.concurrent.duration._
+import infra.river.data.EventCase
 
 /**
  * @author alari
@@ -18,10 +18,10 @@ import scala.concurrent.duration._
 class RiverSpec extends Specification {
   "river" should {
     "work" in new WithApplication(FakeApplication(additionalPlugins = Seq(
-      "mirari.river.TestWatcher",
-      "mirari.river.TestWrapper",
-      "mirari.river.TestDigestView",
-      "mirari.river.TestChannel"
+      "infra.river.TestWatcher",
+      "infra.river.TestWrapper",
+      "infra.river.TestDigestView",
+      "infra.river.TestChannel"
     ))) {
       (1 to 4000).foreach {
         i =>
