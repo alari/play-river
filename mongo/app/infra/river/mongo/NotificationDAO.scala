@@ -1,65 +1,35 @@
-package mirari.river.mongo
+package infra.river.mongo
 
-import mirari.river._
-import mirari.river.data._
-
-import play.api.Plugin
-import mirari.mongo.{MongoStreams, MongoDomain, MongoDAO}
-import org.joda.time.DateTime
-import play.api.libs.json.Json
+import infra.mongo.{MongoStreams, MongoDAO}
+import play.api.libs.json._
 import scala.concurrent.{Future, ExecutionContext}
-import play.api.libs.iteratee.{Enumerator, Iteratee, Enumeratee}
-import reactivemongo.core.commands._
+import play.api.libs.iteratee.{Iteratee, Enumerator, Enumeratee}
+import infra.river.data.Notification
+import infra.river._
+import org.joda.time.DateTime
 import reactivemongo.bson._
+import reactivemongo.core.commands._
+import play.modules.reactivemongo.json.BSONFormats.BSONDocumentFormat
+import play.api.Plugin
+import reactivemongo.core.commands.Group
 import reactivemongo.core.commands.Match
-import mirari.river.Finder
+import infra.river.Finder
 import play.api.libs.json.JsString
+import reactivemongo.bson.BSONString
+import reactivemongo.core.commands.SumValue
+import reactivemongo.bson.BSONLong
 import reactivemongo.bson.BSONInteger
 import reactivemongo.core.commands.Unwind
 import reactivemongo.core.commands.Project
+import reactivemongo.core.commands.GroupField
 import reactivemongo.core.commands.GroupMulti
-import mirari.river.PendingTopic
+import infra.river.PendingTopic
 import play.api.libs.json.JsObject
-import play.modules.reactivemongo.json.BSONFormats.BSONDocumentFormat
 
 /**
  * @author alari
- * @since 4/10/14
+ * @since 4/14/14
  */
-class NotificationDAO(app: play.api.Application) extends Plugin with NotificationStorage {
-  def dao = NotificationDAO
-
-  override def pendingProcessed(implicit ec: ExecutionContext): Enumeratee[PendingTopic, Boolean] =
-    Enumeratee.mapM(dao.markProcessed)
-
-  override def pendingTopicNotifications(implicit ec: ExecutionContext): Enumeratee[PendingTopic, (PendingTopic, List[Notification])] =
-    Enumeratee.mapM(t => dao.find(dao.topicToSearch(t)).map(l => t -> l))
-
-  override def pendings(implicit ec: ExecutionContext): Enumerator[PendingTopic] =
-    dao.pendings
-
-  override def count(finder: Finder)(implicit ec: ExecutionContext): Future[Long] =
-    dao.count(finder)
-
-  override def remove(finder: Finder)(implicit ec: ExecutionContext): Future[Boolean] =
-    dao.remove(finder)
-
-  override def markRead(finder: Finder)(implicit ec: ExecutionContext): Future[Boolean] =
-    dao.markRead(finder)
-
-  override def delay(implicit ec: ExecutionContext): Iteratee[(Notification, Seq[(String, DateTime)]), Unit] =
-    Iteratee.foreach {
-      case (n: NotificationDomain, ds) =>
-        dao.delay(n, ds)
-    }
-
-  override def findForFinder(implicit ec: ExecutionContext): Enumeratee[Finder, Notification] =
-    Enumeratee.map(dao.finderToSearch) ><> dao.Stream.findBy ><> dao.nd2nee
-
-  override def insert(implicit ec: ExecutionContext): Enumeratee[Notification, Notification] =
-    Enumeratee.map(dao.n2nd) ><> Enumeratee.mapM(n => dao.insert(n).mapTo[Notification])
-}
-
 object NotificationDAO extends MongoDAO.Oid[NotificationDomain]("river.notification") with MongoStreams[NotificationDomain] {
   implicit val pendingF = Json.format[NotificationPending]
   protected implicit val format = Json.format[NotificationDomain]
@@ -172,17 +142,40 @@ object NotificationDAO extends MongoDAO.Oid[NotificationDomain]("river.notificat
     ).filter(_.isDefined).map(_.get).reduce(_ ++ _)
 }
 
-case class NotificationDomain(
-                               eventId: String,
-                               userId: String,
-                               topic: String,
-                               timestamp: DateTime,
-                               read: Boolean,
-                               pending: Seq[NotificationPending],
-                               contexts: Map[String, String],
-                               _id: MongoDomain.Oid.Id
-                               ) extends MongoDomain.Oid with Notification {
-  lazy val digest = pending.map(nd => nd.channelId -> nd.delayedTill).toMap
-}
+/**
+ * @author alari
+ * @since 4/10/14
+ */
+class NotificationDAO(app: play.api.Application) extends Plugin with NotificationStorage {
+  def dao = NotificationDAO
 
-case class NotificationPending(channelId: String, delayedTill: DateTime)
+  override def pendingProcessed(implicit ec: ExecutionContext): Enumeratee[PendingTopic, Boolean] =
+    Enumeratee.mapM(dao.markProcessed)
+
+  override def pendingTopicNotifications(implicit ec: ExecutionContext): Enumeratee[PendingTopic, (PendingTopic, List[Notification])] =
+    Enumeratee.mapM(t => dao.find(dao.topicToSearch(t)).map(l => t -> l))
+
+  override def pendings(implicit ec: ExecutionContext): Enumerator[PendingTopic] =
+    dao.pendings
+
+  override def count(finder: Finder)(implicit ec: ExecutionContext): Future[Long] =
+    dao.count(finder)
+
+  override def remove(finder: Finder)(implicit ec: ExecutionContext): Future[Boolean] =
+    dao.remove(finder)
+
+  override def markRead(finder: Finder)(implicit ec: ExecutionContext): Future[Boolean] =
+    dao.markRead(finder)
+
+  override def delay(implicit ec: ExecutionContext): Iteratee[(Notification, Seq[(String, DateTime)]), Unit] =
+    Iteratee.foreach {
+      case (n: NotificationDomain, ds) =>
+        dao.delay(n, ds)
+    }
+
+  override def findForFinder(implicit ec: ExecutionContext): Enumeratee[Finder, Notification] =
+    Enumeratee.map(dao.finderToSearch) ><> dao.stream.findBy ><> dao.nd2nee
+
+  override def insert(implicit ec: ExecutionContext): Enumeratee[Notification, Notification] =
+    Enumeratee.map(dao.n2nd) ><> Enumeratee.mapM(n => dao.insert(n).mapTo[Notification])
+}

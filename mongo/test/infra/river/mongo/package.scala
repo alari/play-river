@@ -1,4 +1,4 @@
-package mirari.river
+package infra.river
 
 import play.api.test.FakeApplication
 
@@ -8,7 +8,7 @@ import play.api.test.FakeApplication
  */
 package object mongo {
   def fakeApp = FakeApplication(
-  additionalPlugins = Seq("mirari.river.mongo.EventDAO", "mirari.river.mongo.NotificationDAO", "play.modules.reactivemongo.ReactiveMongoPlugin"),
+  additionalPlugins = Seq("infra.river.mongo.EventDAO", "infra.river.mongo.NotificationDAO", "play.modules.reactivemongo.ReactiveMongoPlugin"),
   additionalConfiguration = Map(
     "mongodb.db" -> "play-river-mongo"
   )

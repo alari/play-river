@@ -1,10 +1,12 @@
-package mirari.river.mongo
+package infra.river.mongo
 
 import play.api.test.{WithApplication, PlaySpecification}
-import mirari.river.data.{Event, EventCase}
+import infra.river.data.Event
 import play.api.libs.iteratee.{Iteratee, Enumerator}
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
+import infra.river.data.EventCase
+import scala.Some
+import scala.concurrent.ExecutionContext
 import ExecutionContext.Implicits.global
 
 /**

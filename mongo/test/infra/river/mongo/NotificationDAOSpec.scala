@@ -1,14 +1,18 @@
-package mirari.river.mongo
+package infra.river.mongo
 
 import play.api.test.{WithApplication, PlaySpecification}
-import mirari.river.data.{Notification, EventCase, Event}
+import infra.river.data.{Notification, Event}
 import play.api.libs.iteratee.{Enumeratee, Iteratee, Enumerator}
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import ExecutionContext.Implicits.global
 import java.util.UUID
-import mirari.river.{PendingTopic, Finder}
+import infra.river.PendingTopic
 import org.joda.time.DateTime
+import infra.river.Finder
+import infra.river.data.EventCase
+import scala.Some
+import infra.river.PendingTopic
 
 /**
  * @author alari
