@@ -33,6 +33,8 @@ trait NotificationStorage {
 
   def count(finder: Finder)(implicit ec: ExecutionContext): Future[Long]
 
+  def countContexts(finder: Finder, contexts: String*)(implicit ec: ExecutionContext): Enumerator[ContextsCount]
+
   def pendings(implicit ec: ExecutionContext): Enumerator[PendingTopic]
 
   def pendingTopicNotifications(implicit ec: ExecutionContext): Enumeratee[PendingTopic, (PendingTopic, List[Notification])]
@@ -123,6 +125,14 @@ private[river] object NotificationStorage extends NotificationStorage {
   override def count(finder: Finder)(implicit ec: ExecutionContext): Future[Long] = {
     val f = matches(finder)
     Future(stored.count(f))
+  }
+
+  override def countContexts(finder: Finder, contexts: String*)(implicit ec: ExecutionContext): Enumerator[ContextsCount] = {
+    val f = matches(finder)
+    Enumerator.enumerate(stored.filter(f).groupBy(_.contexts.filter(kv => contexts.contains(kv._1))).map{
+      case (k, v) =>
+      ContextsCount(k, v.groupBy(_.eventId).size)
+    })
   }
 
   override def remove(finder: Finder)(implicit ec: ExecutionContext): Future[Boolean] = {
