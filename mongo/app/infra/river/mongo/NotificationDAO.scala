@@ -102,6 +102,30 @@ object NotificationDAO extends MongoDAO.Oid[NotificationDomain]("river.notificat
     }
   }
 
+  def countContexts(finder: Finder, contexts: String*)(implicit ec: ExecutionContext): Enumerator[ContextsCount] = {
+    val f = BSONDocumentFormat.reads(finder).asOpt.getOrElse(BSONDocument(Seq()))
+    Enumerator flatten db.command(Aggregate(collectionName, Seq(
+      Match(f),
+      GroupMulti(contexts.map(c => c -> s"contexts.$c") :+ ("eventId" -> "eventId"): _*)(),
+      GroupMulti(contexts.map(c => c -> s"_id.$c"): _*)("n" -> SumValue(1))
+    ))).map {
+      s =>
+        Enumerator enumerate s.map {
+          doc =>
+            val d = BSONDocumentFormat.writes(doc)
+            val ctx = (d \ "_id").asOpt[JsObject].getOrElse(Json.obj()).value.mapValues {
+              case JsString(s) => s
+              case _ => ""
+            }.toMap
+            val cnt = (d \ "n").asOpt[Long].getOrElse {
+              play.api.Logger.error(s"Cannot count grouping for $finder, $contexts, got " + d)
+              -1l
+            }
+            ContextsCount(ctx, cnt)
+        }
+    }
+  }
+
   def remove(finder: Finder)(implicit ec: ExecutionContext): Future[Boolean] =
     removeAll(finder)
 
@@ -152,7 +176,7 @@ class NotificationDAO(app: play.api.Application) extends Plugin with Notificatio
   override def pendingProcessed(implicit ec: ExecutionContext): Enumeratee[PendingTopic, Boolean] =
     Enumeratee.mapM(dao.markProcessed)
 
-  override def pendingTopicNotifications(implicit ec: ExecutionContext): Enumeratee[PendingTopic, (PendingTopic, List[Notification])] =
+  override def pendingTopicNotifications(implicit ec: ExecutionContext) =
     Enumeratee.mapM(t => dao.find(dao.topicToSearch(t)).map(l => t -> l))
 
   override def pendings(implicit ec: ExecutionContext): Enumerator[PendingTopic] =
@@ -160,6 +184,9 @@ class NotificationDAO(app: play.api.Application) extends Plugin with Notificatio
 
   override def count(finder: Finder)(implicit ec: ExecutionContext): Future[Long] =
     dao.count(finder)
+
+  override def countContexts(finder: Finder, contexts: String*)(implicit ec: ExecutionContext) =
+    dao.countContexts(finder, contexts: _*)
 
   override def remove(finder: Finder)(implicit ec: ExecutionContext): Future[Boolean] =
     dao.remove(finder)

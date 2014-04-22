@@ -7,12 +7,9 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import ExecutionContext.Implicits.global
 import java.util.UUID
-import infra.river.PendingTopic
 import org.joda.time.DateTime
-import infra.river.Finder
+import infra.river.{ContextsCount, Finder, PendingTopic}
 import infra.river.data.EventCase
-import scala.Some
-import infra.river.PendingTopic
 
 /**
  * @author alari
@@ -53,7 +50,7 @@ class NotificationDAOSpec extends PlaySpecification {
       var sn: Seq[Notification] = _
 
       Enumerator.enumerate(ns) &> Enumeratee.map[Notification](n => {
-        play.api.Logger.debug("going to insert " + n);
+        play.api.Logger.debug("going to insert " + n)
         n
       }) ><> dao.insert |>>> Iteratee.getChunks must beLike[List[Notification]] {
         case l@List(n1, n2, n3) =>
@@ -85,15 +82,63 @@ class NotificationDAOSpec extends PlaySpecification {
         case l =>
           l.count(_.channelId == u1) must_== 2
           l.count(_.channelId == u2) must_== 1
-        Enumerator.enumerate(l) &> dao.pendingProcessed |>>> Iteratee.getChunks must beLike[List[Boolean]]{
-          case ll =>
-            play.api.Logger.debug(ll.toString())
-          ll.forall(b => b) must beTrue
-        }.await(1, 300 millis)
+          Enumerator.enumerate(l) &> dao.pendingProcessed |>>> Iteratee.getChunks must beLike[List[Boolean]] {
+            case ll =>
+              play.api.Logger.debug(ll.toString())
+              ll.forall(b => b) must beTrue
+          }.await(1, 300 millis)
 
-        dao.pendings |>>> Iteratee.getChunks must beEqualTo(Nil).await(1, 300 millis)
+          dao.pendings |>>> Iteratee.getChunks must beEqualTo(Nil).await(1, 300 millis)
 
       }.await(1, 1 second)
+    }
+
+    "count with groupings" in new WithApplication(fakeApp) {
+      val eDao = app.plugin[EventDAO].get
+      val dao = app.plugin[NotificationDAO].get
+
+      val u1 = "ctx1:" + UUID.randomUUID().toString
+      val u2 = "ctx2:" + UUID.randomUUID().toString
+      val t = UUID.randomUUID().toString
+
+      val e: Event = EventCase("test2", None, Map("test_1" -> u1))
+      val e2: Event = EventCase("test2", None, Map("test_2" -> u2, "test_1" -> u1))
+
+      var se: Event = _
+      var se2: Event = _
+
+      Enumerator(e, e2) &> eDao.insert |>>> Iteratee.getChunks must beLike[List[Event]] {
+        case List(s1, s2) =>
+          se = s1
+          se2 = s2
+          se2.id must_!= se.id
+      }.await(1, 1 second)
+
+      val ns = Seq[Notification](
+        se.notification(u1, t),
+        se.notification(u2, t),
+        se2.notification(u2, t)
+      )
+
+      var sn: Seq[Notification] = _
+
+      Enumerator.enumerate(ns) &> Enumeratee.map[Notification](n => {
+        play.api.Logger.debug("going to insert " + n)
+        n
+      }) ><> dao.insert |>>> Iteratee.getChunks must beLike[List[Notification]] {
+        case l@List(n1, n2, n3) =>
+          sn = l
+          l.count(_.eventId == se.id) must_== 2
+          l.count(_.eventId == se2.id) must_== 1
+          l.exists(_.userId == u1) must beTrue
+          l.exists(_.userId == u2) must beTrue
+      }.await(1, 1 second)
+
+      dao.countContexts(Finder(read = Some(false), topic = Some(t)), "test_1") |>>> Iteratee.getChunks must beLike[List[ContextsCount]] {
+        case List(a) =>
+          a.contexts must_== Map("test_1" -> u1)
+          a.count must_== 2
+      }.await(1, 300 millis)
     }
   }
 }
