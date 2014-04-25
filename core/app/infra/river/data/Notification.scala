@@ -13,7 +13,7 @@ trait Notification extends Contexts {
 
   def timestamp: DateTime
 
-  def read: Boolean
+  def viewed: Boolean
 
   def digest: Map[String, DateTime]
 

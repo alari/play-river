@@ -14,20 +14,22 @@ trait NotificationStorage {
 
   def findForFinder(implicit ec: ExecutionContext): Enumeratee[Finder, Notification]
 
-  def delay(implicit ec: ExecutionContext): Iteratee[(Notification, Seq[(String, DateTime)]), Unit]
+  def scheduleDigest(implicit ec: ExecutionContext): Iteratee[(Notification, Seq[(String, DateTime)]), Unit]
 
   def act(implicit ec: ExecutionContext): Enumeratee[Watcher.Action, (Event, Notification)] = Enumeratee.mapFlatten {
     case Watcher.Push(e, n) =>
       Enumerator(n) &> insert ><> Enumeratee.map(nn => (e, nn))
-    case Watcher.Read(f) =>
-      markRead(f)
+    case Watcher.Transient(e, n) =>
+      Enumerator((e, n))
+    case Watcher.View(f) =>
+      markViewed(f)
       Enumerator.empty
     case Watcher.Remove(f) =>
       remove(f)
       Enumerator.empty
   }
 
-  def markRead(finder: Finder)(implicit ec: ExecutionContext): Future[Boolean]
+  def markViewed(finder: Finder)(implicit ec: ExecutionContext): Future[Boolean]
 
   def remove(finder: Finder)(implicit ec: ExecutionContext): Future[Boolean]
 
@@ -44,6 +46,7 @@ trait NotificationStorage {
 
 private[river] object NotificationStorage extends NotificationStorage {
   var stored: Vector[NotificationCase] = Vector.empty
+  def readStored: Vector[Notification] = stored
 
   def forTopic(t: PendingTopic) =
     (n: Notification) => t.topic == n.topic && t.userId == n.userId && n.digest.exists(kv => kv._1 == t.channelId && kv._2.isBeforeNow)
@@ -52,16 +55,16 @@ private[river] object NotificationStorage extends NotificationStorage {
     (n: Notification) =>
       f.userId.map(_ == n.userId).getOrElse(true) &&
         f.contexts.map(_.forall(p => n.contexts.exists(_ == p))).getOrElse(true) &&
-        f.delayed.map(n.digest.contains).getOrElse(true) &&
-        f.read.map(_ == n.read).getOrElse(true) &&
+        f.digestChannel.map(n.digest.contains).getOrElse(true) &&
+        f.viewed.map(_ == n.viewed).getOrElse(true) &&
         f.topic.map(_ == n.topic).getOrElse(true)
 
   override def pendingTopicNotifications(implicit ec: ExecutionContext): Enumeratee[PendingTopic, (PendingTopic, List[Notification])] =
-    Enumeratee.mapFlatten {
-      t =>
+    Enumeratee.mapFlatten[PendingTopic] {
+      t: PendingTopic =>
         val f = forTopic(t)
         Enumerator(
-          t -> stored.filter(f).toList
+          t -> readStored.filter(f).toList
         )
 
     }
@@ -72,7 +75,7 @@ private[river] object NotificationStorage extends NotificationStorage {
         ns.flatMap(_.digest.toSeq.filter(_._2.isBeforeNow).map(_._1)).distinct.map(cid => PendingTopic(t, uid, cid))
     }.toSeq: _*)
 
-  override def delay(implicit ec: ExecutionContext): Iteratee[(Notification, Seq[(String, DateTime)]), Unit] = Iteratee.foreach {
+  override def scheduleDigest(implicit ec: ExecutionContext): Iteratee[(Notification, Seq[(String, DateTime)]), Unit] = Iteratee.foreach {
     case (n, d) =>
       val nc: NotificationCase = n
       stored = stored.map {
@@ -96,9 +99,9 @@ private[river] object NotificationStorage extends NotificationStorage {
 
   override def findForFinder(implicit ec: ExecutionContext): Enumeratee[Finder, Notification] =
     Enumeratee.mapFlatten {
-      finder =>
+      finder: Finder =>
         val f = matches(finder)
-        Enumerator.enumerate(stored.filter(f))
+        Enumerator.enumerate(readStored.filter(f))
     }
 
   override def insert(implicit ec: ExecutionContext): Enumeratee[Notification, Notification] =
@@ -116,7 +119,7 @@ private[river] object NotificationStorage extends NotificationStorage {
       n.userId,
       n.topic,
       n.timestamp,
-      n.read,
+      n.viewed,
       n.digest,
       n.contexts
     )
@@ -143,11 +146,11 @@ private[river] object NotificationStorage extends NotificationStorage {
     }
   }
 
-  override def markRead(finder: Finder)(implicit ec: ExecutionContext): Future[Boolean] = {
+  override def markViewed(finder: Finder)(implicit ec: ExecutionContext): Future[Boolean] = {
     val f = matches(finder)
     Future {
       stored = stored.map {
-        case n if f(n) => n.copy(read = true)
+        case n if f(n) => n.copy(viewed = true)
         case n => n
       }
       true

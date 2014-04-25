@@ -7,7 +7,7 @@ package infra.river
 case class Finder(
                    userId: Option[String] = None,
                    contexts: Option[Map[String, String]] = None,
-                   read: Option[Boolean] = None,
+                   viewed: Option[Boolean] = None,
                    topic: Option[String] = None,
-                   delayed: Option[String] = None
+                   digestChannel: Option[String] = None
                    )

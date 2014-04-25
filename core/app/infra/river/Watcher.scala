@@ -18,8 +18,10 @@ object Watcher {
 
   case class Push(event: Event, notification: Notification) extends Action
 
+  case class Transient(event: Event, notification: Notification) extends Action
+
   case class Remove(finder: Finder) extends Action
 
-  case class Read(finder: Finder) extends Action
+  case class View(finder: Finder) extends Action
 
 }

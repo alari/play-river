@@ -152,7 +152,7 @@ trait River {
           n -> Seq.empty[(String, DateTime)]
         case (n, es) =>
           n -> es.map(e => e.channelId -> DateTime.now().plusSeconds(e.delay.toSeconds.toInt))
-      } &>> storage.delay
+      } &>> storage.scheduleDigest
 
   /**
    * Runs a notifications flow for a source of events

@@ -39,7 +39,9 @@ class RiverSpec extends Specification {
 
 class TestWatcher(app: play.api.Application) extends Plugin with Watcher {
   override def watch(implicit ec: ExecutionContext) = {
-    case e => Enumerator(e.push("root", "topic"))
+    case e => Enumerator(
+      e.transient("root", "topic")
+    )
   }
 }
 

@@ -11,12 +11,12 @@ case class NotificationCase(
                              userId: String,
                              topic: String,
                              timestamp: DateTime = DateTime.now(),
-                             read: Boolean = false,
+                             viewed: Boolean = false,
                              digest: Map[String, DateTime] = Map.empty,
                              contexts: Map[String, String] = Map.empty
                              ) extends Notification
 
 object NotificationCase {
   def produce(event: Event, userId: String, topic: String) =
-    NotificationCase(event.id, userId, topic, contexts = event.contexts ++ event.artifacts, read = event.userId.exists(_ == userId))
+    NotificationCase(event.id, userId, topic, contexts = event.contexts ++ event.artifacts, viewed = event.userId.exists(_ == userId))
 }
