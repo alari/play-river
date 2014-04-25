@@ -34,7 +34,7 @@ object NotificationDAO extends MongoDAO.Oid[NotificationDomain]("river.notificat
   implicit val pendingF = Json.format[NotificationPending]
   protected implicit val format = Json.format[NotificationDomain]
 
-  ensureIndex("read" -> Descending, "pending.delayedTill" -> Ascending)
+  ensureIndex("viewed" -> Descending, "pending.delayedTill" -> Ascending)
   ensureIndex("pending.delayedTill" -> Ascending)
   ensureIndex("userId" -> Ascending, "topic" -> Ascending, "pending.channelId" -> Ascending)
   ensureIndex("contexts" -> Ascending, "userId" -> Ascending)
@@ -56,7 +56,7 @@ object NotificationDAO extends MongoDAO.Oid[NotificationDomain]("river.notificat
     val delayedTill = "pending.delayedTill" -> bd("$lt" -> BSONLong(System.currentTimeMillis()))
 
     Enumerator.flatten(db.command(Aggregate(collectionName, Seq(
-      Match(bd("read" -> false, delayedTill)),
+      Match(bd("viewed" -> false, delayedTill)),
       Project(
         "topic" -> BSONInteger(1),
         "userId" -> BSONInteger(1),
@@ -129,8 +129,8 @@ object NotificationDAO extends MongoDAO.Oid[NotificationDomain]("river.notificat
   def remove(finder: Finder)(implicit ec: ExecutionContext): Future[Boolean] =
     removeAll(finder)
 
-  def markRead(finder: Finder)(implicit ec: ExecutionContext): Future[Boolean] =
-    collection.update(finder: JsObject, Json.obj("$set" -> Json.obj("read" -> true))).map(failOrTrue)
+  def markViewed(finder: Finder)(implicit ec: ExecutionContext): Future[Boolean] =
+    collection.update(finder: JsObject, Json.obj("$set" -> Json.obj("viewed" -> true))).map(failOrTrue)
 
   implicit def n2nd(n: Notification): NotificationDomain = n match {
     case nd: NotificationDomain => nd
@@ -140,7 +140,7 @@ object NotificationDAO extends MongoDAO.Oid[NotificationDomain]("river.notificat
         userId = n.userId,
         topic = n.topic,
         timestamp = n.timestamp,
-        read = n.read,
+        viewed = n.viewed,
         pending = n.digest.map(ab => NotificationPending(ab._1, ab._2)).toSeq,
         contexts = n.contexts,
         _id = generateSomeId
@@ -160,9 +160,9 @@ object NotificationDAO extends MongoDAO.Oid[NotificationDomain]("river.notificat
       finder.contexts.map(ctx => JsObject(ctx.map {
         case (k, v) => s"contexts.$k" -> JsString(v)
       }.toSeq)),
-      finder.read.map(r => Json.obj("read" -> r)),
+      finder.viewed.map(r => Json.obj("viewed" -> r)),
       finder.topic.map(t => Json.obj("topic" -> t)),
-      finder.delayed.map(c => Json.obj("pending.channelId" -> c))
+      finder.digestChannel.map(c => Json.obj("pending.channelId" -> c))
     ).filter(_.isDefined).map(_.get).reduce(_ ++ _)
 }
 
@@ -191,12 +191,12 @@ class NotificationDAO(app: play.api.Application) extends Plugin with Notificatio
   override def remove(finder: Finder)(implicit ec: ExecutionContext): Future[Boolean] =
     dao.remove(finder)
 
-  override def markRead(finder: Finder)(implicit ec: ExecutionContext): Future[Boolean] =
-    dao.markRead(finder)
+  override def markViewed(finder: Finder)(implicit ec: ExecutionContext): Future[Boolean] =
+    dao.markViewed(finder)
 
-  override def delay(implicit ec: ExecutionContext): Iteratee[(Notification, Seq[(String, DateTime)]), Unit] =
+  override def scheduleDigest(implicit ec: ExecutionContext): Iteratee[(Notification, Seq[(String, DateTime)]), Unit] =
     Iteratee.foreach {
-      case (n: NotificationDomain, ds) =>
+      case (n: NotificationDomain, ds) if n._id.isDefined =>
         dao.delay(n, ds)
     }
 

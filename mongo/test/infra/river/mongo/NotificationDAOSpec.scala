@@ -71,7 +71,8 @@ class NotificationDAOSpec extends PlaySpecification {
         (sn(0), Seq(u1 -> DateTime.now().minusDays(1))),
         (sn(1), Seq(u1 -> DateTime.now().plusDays(1), u2 -> DateTime.now().minusDays(2))),
         (sn(2), Seq(u1 -> DateTime.now().minusDays(1)))
-      ) |>>> dao.delay
+      ) |>>> dao.scheduleDigest
+
       delayUnit.map(_ => true).recover {
         case er: Throwable =>
           play.api.Logger.error("delay not delays", er)
@@ -80,6 +81,7 @@ class NotificationDAOSpec extends PlaySpecification {
 
       dao.pendings |>>> Iteratee.getChunks must beLike[List[PendingTopic]] {
         case l =>
+          play.api.Logger.debug("so: "+l)
           l.count(_.channelId == u1) must_== 2
           l.count(_.channelId == u2) must_== 1
           Enumerator.enumerate(l) &> dao.pendingProcessed |>>> Iteratee.getChunks must beLike[List[Boolean]] {
@@ -134,7 +136,7 @@ class NotificationDAOSpec extends PlaySpecification {
           l.exists(_.userId == u2) must beTrue
       }.await(1, 1 second)
 
-      dao.countContexts(Finder(read = Some(false), topic = Some(t)), "test_1") |>>> Iteratee.getChunks must beLike[List[ContextsCount]] {
+      dao.countContexts(Finder(viewed = Some(false), topic = Some(t)), "test_1") |>>> Iteratee.getChunks must beLike[List[ContextsCount]] {
         case List(a) =>
           a.contexts must_== Map("test_1" -> u1)
           a.count must_== 2

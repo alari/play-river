@@ -13,7 +13,7 @@ case class NotificationDomain(
                                userId: String,
                                topic: String,
                                timestamp: DateTime,
-                               read: Boolean,
+                               viewed: Boolean,
                                pending: Seq[NotificationPending],
                                contexts: Map[String, String],
                                _id: MongoDomain.Oid.Id
