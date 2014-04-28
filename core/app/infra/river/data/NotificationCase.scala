@@ -17,6 +17,6 @@ case class NotificationCase(
                              ) extends Notification
 
 object NotificationCase {
-  def produce(event: Event, userId: String, topic: String) =
-    NotificationCase(event.id, userId, topic, contexts = event.contexts ++ event.artifacts, viewed = event.userId.exists(_ == userId))
+  def produce(event: Event, userId: String, topic: String, withContexts: Map[String,String] = Map.empty) =
+    NotificationCase(event.id, userId, topic, contexts = event.contexts ++ event.artifacts ++ withContexts, viewed = event.userId.exists(_ == userId))
 }

@@ -16,9 +16,9 @@ trait Event extends Contexts with Artifacts {
 
   def timestamp: DateTime
 
-  def notification(userId: String, topic: String): Notification = NotificationCase.produce(this, userId, topic)
+  def notification(userId: String, topic: String, withContexts: (String, String)*): Notification = NotificationCase.produce(this, userId, topic, withContexts.toMap)
 
-  def push(userId: String, topic: String) = Watcher.Push(this, notification(userId, topic))
+  def push(userId: String, topic: String, withContexts: (String, String)*) = Watcher.Push(this, notification(userId, topic, withContexts: _*))
 
-  def transient(userId: String, topic: String) = Watcher.Transient(this, notification(userId, topic))
+  def transient(userId: String, topic: String, withContexts: (String, String)*) = Watcher.Transient(this, notification(userId, topic, withContexts: _*))
 }
