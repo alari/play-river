@@ -130,7 +130,7 @@ object NotificationDAO extends MongoDAO.Oid[NotificationDomain]("river.notificat
     removeAll(finder)
 
   def markViewed(finder: Finder)(implicit ec: ExecutionContext): Future[Boolean] =
-    collection.update(finder: JsObject, Json.obj("$set" -> Json.obj("viewed" -> true))).map(failOrTrue)
+    collection.update(finder: JsObject, Json.obj("$set" -> Json.obj("viewed" -> true)), multi = true).map(failOrTrue)
 
   implicit def n2nd(n: Notification): NotificationDomain = n match {
     case nd: NotificationDomain => nd

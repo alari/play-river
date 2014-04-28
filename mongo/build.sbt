@@ -2,7 +2,7 @@ organization := "play-infra"
 
 name := "play-river-mongo"
 
-version := "0.1.3"
+version := "0.1.4"
 
 scalaVersion := "2.10.4"
 
