@@ -16,17 +16,31 @@ trait NotificationStorage {
 
   def scheduleDigest(implicit ec: ExecutionContext): Iteratee[(Notification, Seq[(String, DateTime)]), Unit]
 
-  def act(implicit ec: ExecutionContext): Enumeratee[Watcher.Action, (Event, Notification)] = Enumeratee.mapFlatten {
-    case Watcher.Push(e, n) =>
-      Enumerator(n) &> insert ><> Enumeratee.map(nn => (e, nn))
-    case Watcher.Transient(e, n) =>
-      Enumerator((e, n))
-    case Watcher.View(f) =>
-      markViewed(f)
-      Enumerator.empty
-    case Watcher.Remove(f) =>
-      remove(f)
-      Enumerator.empty
+  def act(implicit ec: ExecutionContext): Enumeratee[Watcher.Action, (Event, Notification)] = Enumeratee.mapFlatten(action _)
+
+  /**
+   * Chaining watcher actions -- e.g. read first, notify then
+   * @param a
+   * @param ec
+   * @return
+   */
+  def action(a: Watcher.Action)(implicit ec: ExecutionContext): Enumerator[(Event,Notification)] = {
+    val enum = a match {
+      case Watcher.Push(e, n, _) =>
+        Enumerator(n) &> insert ><> Enumeratee.map(nn => (e, nn))
+      case Watcher.Transient(e, n, _) =>
+        Enumerator((e, n))
+      case Watcher.View(f, _) =>
+        Enumerator.flatten(markViewed(f).map(_ => Enumerator.empty[(Event,Notification)]))
+      case Watcher.Remove(f, _) =>
+        Enumerator.flatten(remove(f).map(_ => Enumerator.empty[(Event,Notification)]))
+    }
+    a.nextAction match {
+      case Some(next) =>
+        enum >>> action(next)
+      case None =>
+        enum
+    }
   }
 
   def markViewed(finder: Finder)(implicit ec: ExecutionContext): Future[Boolean]

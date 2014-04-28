@@ -14,14 +14,16 @@ trait Watcher {
 
 object Watcher {
 
-  abstract sealed class Action
+  abstract sealed class Action {
+    def nextAction: Option[Action]
+  }
 
-  case class Push(event: Event, notification: Notification) extends Action
+  case class Push(event: Event, notification: Notification, nextAction: Option[Action] = None) extends Action
 
-  case class Transient(event: Event, notification: Notification) extends Action
+  case class Transient(event: Event, notification: Notification, nextAction: Option[Action] = None) extends Action
 
-  case class Remove(finder: Finder) extends Action
+  case class Remove(finder: Finder, nextAction: Option[Action] = None) extends Action
 
-  case class View(finder: Finder) extends Action
+  case class View(finder: Finder, nextAction: Option[Action] = None) extends Action
 
 }
