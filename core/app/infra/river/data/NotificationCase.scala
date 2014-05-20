@@ -18,5 +18,5 @@ case class NotificationCase(
 
 object NotificationCase {
   def produce(event: Event, userId: String, topic: String, withContexts: Map[String,String] = Map.empty) =
-    NotificationCase(event.id, userId, topic, contexts = event.contexts ++ event.artifacts ++ withContexts, viewed = event.userId.exists(_ == userId))
+    NotificationCase(event.id, userId, topic, contexts = event.contexts ++ event.artifacts ++ withContexts + ("action" -> event.action), viewed = event.userId.exists(_ == userId))
 }
