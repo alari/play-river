@@ -84,11 +84,38 @@ object NotificationDAO extends MongoDAO.Oid[NotificationDomain]("river.notificat
 
   }
 
-  def count(finder: Finder)(implicit ec: ExecutionContext): Future[Long] = {
-    val f = BSONDocumentFormat.reads(finder).asOpt.getOrElse(BSONDocument(Seq()))
+  val groupingUnwrapper: List[(Map[String,String],Grouping)=>Map[String,String]] = List(
+    (m, g) => if(g.eventId) m + ("eventId" -> "eventId") else m,
+    (m, g) => if(g.topic) m + ("topic" -> "topic") else m,
+    (m, g) => if(g.userId) m + ("userId" -> "userId") else m,
+    (m, g) => m ++ g.contexts.map(c => c -> s"contexts.$c")
+  )
+
+  def groupingUnwrap(grouping: Grouping): Map[String,String] = {
+    def unwrap(m: Map[String,String], l:List[(Map[String,String],Grouping)=>Map[String,String]]):Map[String,String] = l match {
+      case w::tail =>
+        unwrap( w(m,grouping), tail )
+      case Nil => m
+    }
+    unwrap(Map.empty, groupingUnwrapper)
+  }
+
+  def groupingPipeline(grouping: Grouping): PipelineOperator = {
+    groupingUnwrap(grouping) match {
+      case m if m.isEmpty =>
+        throw new RuntimeException("Grouping operator is empty")
+      case m if m.size == 1 =>
+        GroupField(m.values.head)()
+      case m =>
+        GroupMulti(m.toSeq: _*)()
+    }
+  }
+
+  def count(finder: Finder, grouping: Grouping)(implicit ec: ExecutionContext): Future[Long] = {
+    val f = BSONDocumentFormat.reads(finder).asOpt.getOrElse(BSONDocument(Seq.empty))
     db.command(Aggregate(collectionName, Seq(
       Match(f),
-      GroupField("eventId")(),
+      groupingPipeline(grouping),
       Group(BSONInteger(0))("n" -> SumValue(1))
     ))).map {
       _.headOption.fold(0l) {
@@ -102,11 +129,11 @@ object NotificationDAO extends MongoDAO.Oid[NotificationDomain]("river.notificat
     }
   }
 
-  def countContexts(finder: Finder, contexts: String*)(implicit ec: ExecutionContext): Enumerator[ContextsCount] = {
+  def countContexts(finder: Finder, grouping: Grouping, contexts: String*)(implicit ec: ExecutionContext): Enumerator[ContextsCount] = {
     val f = BSONDocumentFormat.reads(finder).asOpt.getOrElse(BSONDocument(Seq()))
     Enumerator flatten db.command(Aggregate(collectionName, Seq(
       Match(f),
-      GroupMulti(contexts.map(c => c -> s"contexts.$c") :+ ("eventId" -> "eventId"): _*)(),
+      groupingPipeline(grouping.copy(contexts = grouping.contexts ++ contexts)),
       GroupMulti(contexts.map(c => c -> s"_id.$c"): _*)("n" -> SumValue(1))
     ))).map {
       s =>
@@ -183,10 +210,16 @@ class NotificationDAO(app: play.api.Application) extends Plugin with Notificatio
     dao.pendings
 
   override def count(finder: Finder)(implicit ec: ExecutionContext): Future[Long] =
-    dao.count(finder)
+    dao.count(finder, Grouping(eventId = true))
+
+  override def countGrouping(finder: Finder, grouping: Grouping)(implicit ec: ExecutionContext): Future[Long] =
+    dao.count(finder, grouping)
 
   override def countContexts(finder: Finder, contexts: String*)(implicit ec: ExecutionContext) =
-    dao.countContexts(finder, contexts: _*)
+    dao.countContexts(finder, Grouping(eventId = true), contexts: _*)
+
+  override def countContextsGrouping(finder: Finder, grouping: Grouping, contexts: String*)(implicit ec: ExecutionContext): Enumerator[ContextsCount] =
+    dao.countContexts(finder, grouping, contexts: _*)
 
   override def remove(finder: Finder)(implicit ec: ExecutionContext): Future[Boolean] =
     dao.remove(finder)
