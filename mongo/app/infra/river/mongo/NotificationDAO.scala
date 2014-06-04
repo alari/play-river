@@ -91,14 +91,14 @@ object NotificationDAO extends MongoDAO.Oid[NotificationDomain]("river.notificat
       GroupField("eventId")(),
       Group(BSONInteger(0))("n" -> SumValue(1))
     ))).map {
-      _.headOption.map {
+      _.headOption.fold(0l) {
         doc =>
           val d = BSONDocumentFormat.writes(doc)
           (d \ "n").asOpt[Long].getOrElse {
             play.api.Logger.error(s"[river] Cannot count $finder, got " + d)
             -1l
           }
-      }.getOrElse(0)
+      }
     }
   }
 
@@ -114,7 +114,7 @@ object NotificationDAO extends MongoDAO.Oid[NotificationDomain]("river.notificat
           doc =>
             val d = BSONDocumentFormat.writes(doc)
             val ctx = (d \ "_id").asOpt[JsObject].getOrElse(Json.obj()).value.mapValues {
-              case JsString(s) => s
+              case JsString(str) => str
               case _ => ""
             }.toMap
             val cnt = (d \ "n").asOpt[Long].getOrElse {

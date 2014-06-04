@@ -49,7 +49,11 @@ trait NotificationStorage {
 
   def count(finder: Finder)(implicit ec: ExecutionContext): Future[Long]
 
+  def countGrouping(finder: Finder, grouping: Grouping)(implicit ec: ExecutionContext): Future[Long]
+
   def countContexts(finder: Finder, contexts: String*)(implicit ec: ExecutionContext): Enumerator[ContextsCount]
+
+  def countContextsGrouping(finder: Finder, grouping: Grouping, contexts: String*)(implicit ec: ExecutionContext): Enumerator[ContextsCount]
 
   def pendings(implicit ec: ExecutionContext): Enumerator[PendingTopic]
 
@@ -67,11 +71,11 @@ private[river] object NotificationStorage extends NotificationStorage {
 
   def matches(f: Finder) =
     (n: Notification) =>
-      f.userId.map(_ == n.userId).getOrElse(true) &&
-        f.contexts.map(_.forall(p => n.contexts.exists(_ == p))).getOrElse(true) &&
-        f.digestChannel.map(n.digest.contains).getOrElse(true) &&
-        f.viewed.map(_ == n.viewed).getOrElse(true) &&
-        f.topic.map(_ == n.topic).getOrElse(true)
+      f.userId.fold(true)(_ == n.userId) &&
+        f.contexts.fold(true)(_.forall(p => n.contexts.exists(_ == p))) &&
+        f.digestChannel.fold(true)(n.digest.contains) &&
+        f.viewed.fold(true)(_ == n.viewed) &&
+        f.topic.fold(true)(_ == n.topic)
 
   override def pendingTopicNotifications(implicit ec: ExecutionContext): Enumeratee[PendingTopic, (PendingTopic, List[Notification])] =
     Enumeratee.mapFlatten[PendingTopic] {
@@ -80,7 +84,6 @@ private[river] object NotificationStorage extends NotificationStorage {
         Enumerator(
           t -> readStored.filter(f).toList
         )
-
     }
 
   override def pendings(implicit ec: ExecutionContext): Enumerator[PendingTopic] =
@@ -141,7 +144,23 @@ private[river] object NotificationStorage extends NotificationStorage {
 
   override def count(finder: Finder)(implicit ec: ExecutionContext): Future[Long] = {
     val f = matches(finder)
-    Future(stored.count(f))
+    Future(stored.filter(f).groupBy(_.eventId).size)
+  }
+
+  def projectGrouping(grouping: Grouping) = (n: Notification) => {
+    val s = Set.empty[String]
+    val se = if(grouping.eventId) s+ "event:"+n.eventId else s
+    val st = if(grouping.topic) se + "topic:"+n.topic else se
+    val su = if(grouping.userId) st + "user:"+n.userId else st
+    if(grouping.contexts.nonEmpty) n.contexts.filter(kv => grouping.contexts.contains(kv._1)).foldLeft(su){
+      case (sg, (k, v)) => sg + s"-$k:$v"
+    }
+  }
+
+  override def countGrouping(finder: Finder, grouping: Grouping)(implicit ec: ExecutionContext): Future[Long] = {
+    val f = matches(finder)
+    val p = projectGrouping(grouping)
+    Future(stored.filter(f).groupBy(p).size)
   }
 
   override def countContexts(finder: Finder, contexts: String*)(implicit ec: ExecutionContext): Enumerator[ContextsCount] = {
@@ -149,6 +168,15 @@ private[river] object NotificationStorage extends NotificationStorage {
     Enumerator.enumerate(stored.filter(f).groupBy(_.contexts.filter(kv => contexts.contains(kv._1))).map{
       case (k, v) =>
       ContextsCount(k, v.groupBy(_.eventId).size)
+    })
+  }
+
+  override def countContextsGrouping(finder: Finder, grouping: Grouping, contexts: String*)(implicit ec: ExecutionContext): Enumerator[ContextsCount] = {
+    val f = matches(finder)
+    val p = projectGrouping(grouping)
+    Enumerator.enumerate(stored.filter(f).groupBy(_.contexts.filter(kv => contexts.contains(kv._1))).map{
+      case (k, v) =>
+        ContextsCount(k, v.groupBy(p).size)
     })
   }
 

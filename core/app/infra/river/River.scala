@@ -340,7 +340,7 @@ object River extends River {
   override def checkDelayedSource: Enumerator[CheckDelayed.type] = {
     import scala.concurrent.duration._
     val (cdsource, cdsender) = Concurrent.broadcast[CheckDelayed.type]
-    val period = play.api.Play.current.configuration.getMilliseconds("river.period").map(_ millis).getOrElse(1 minute)
+    val period = play.api.Play.current.configuration.getMilliseconds("river.period").fold(1 minute)(_ millis)
     play.api.libs.concurrent.Akka.system(play.api.Play.current).scheduler.schedule(period, period) {
       cdsender.push(CheckDelayed)
     }
