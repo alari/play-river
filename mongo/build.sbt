@@ -2,17 +2,19 @@ organization := "play-infra"
 
 name := "play-river-mongo"
 
-version := "0.1.7"
+version := "0.3.0"
 
-scalaVersion := "2.10.4"
+libraryDependencies += "play-infra" %% "play-river" % "0.3.0"
 
-libraryDependencies += "play-infra" %% "play-river" % "0.1.6"
+libraryDependencies += "play-infra" %% "play-mongo" % "0.3.0"
 
-libraryDependencies += "play-infra" %% "play-mongo" % "0.1"
+resolvers += "Sonatype Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots/"
 
 resolvers += "quonb" at "http://repo.quonb.org/"
 
-play.Project.playScalaSettings
+crossScalaVersions := Seq("2.10.4", "2.11.1")
+
+lazy val root = (project in file(".")).enablePlugins(play.PlayScala)
 
 scalacOptions ++= Seq(
   "-unchecked",
