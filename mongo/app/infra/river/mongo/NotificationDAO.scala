@@ -30,7 +30,7 @@ import play.api.libs.json.JsObject
  * @author alari
  * @since 4/14/14
  */
-object NotificationDAO extends MongoDAO.Oid[NotificationDomain]("river.notification") with MongoStreams[NotificationDomain] {
+object NotificationDAO extends MongoDAO.Oid[NotificationDomain]("river.notification", "river") with MongoStreams[NotificationDomain] {
   implicit val pendingF = Json.format[NotificationPending]
   protected implicit val format = Json.format[NotificationDomain]
 

@@ -2,11 +2,11 @@ organization := "play-infra"
 
 name := "play-river-mongo"
 
-version := "0.3.0"
+version := "0.3.1"
 
 libraryDependencies += "play-infra" %% "play-river" % "0.3.0"
 
-libraryDependencies += "play-infra" %% "play-mongo" % "0.3.0"
+libraryDependencies += "play-infra" %% "play-mongo" % "0.3.1"
 
 resolvers += "Sonatype Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots/"
 
