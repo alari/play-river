@@ -231,6 +231,7 @@ class NotificationDAO(app: play.api.Application) extends Plugin with Notificatio
     Iteratee.foreach {
       case (n: NotificationDomain, ds) if n._id.isDefined =>
         dao.delay(n, ds)
+      case _ => // ignore
     }
 
   override def findForFinder(implicit ec: ExecutionContext): Enumeratee[Finder, Notification] =

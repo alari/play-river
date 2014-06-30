@@ -2,7 +2,7 @@ organization := "play-infra"
 
 name := "play-river-mongo"
 
-version := "0.3.1"
+version := "0.3.2"
 
 libraryDependencies += "play-infra" %% "play-river" % "0.3.0"
 
